@@ -110,7 +110,10 @@ async function callGemini(env,messages){
       headers:{'content-type':'application/json','x-goog-api-key':env.GEMINI_API_KEY.trim()},
       body:JSON.stringify({systemInstruction:sys?{parts:[{text:sys.content}]}:undefined,contents,generationConfig:gen})});
     if(r.status===429) throw new ProviderError('quota');
-    if(r.status===400||r.status===401||r.status===403||r.status===404) throw new ProviderError('misconfigured','HTTP '+r.status); // kunci/model salah
+    if(r.status===400||r.status===401||r.status===403||r.status===404){
+  const detail=await r.text().catch(()=> '');
+  throw new ProviderError('misconfigured','HTTP '+r.status+' '+detail.slice(0,500));
+}
     if(!r.ok) throw new ProviderError('unavailable','HTTP '+r.status);
     const j=await r.json().catch(()=>null);
     if(j?.promptFeedback?.blockReason) throw new ProviderError('blocked');
