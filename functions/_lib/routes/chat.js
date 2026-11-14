@@ -213,8 +213,9 @@ async function post({request,env}){
   try{raw=await callProvider(env,messages);}
   catch(e){
     const k=e instanceof ProviderError?e.kind:'unavailable';
-    if(k==='blocked') return J({reply:'Maaf, aku tidak bisa menjawab pertanyaan itu. Coba tanyakan dengan cara lain tentang karhutla, lahan gambut, asap, atau pencegahan kebakaran.',materials:[],contacts:[],blocked:true});
-    return err(k==='quota'?503:k==='timeout'?504:502,k);
+console.error('[Gemini diagnostic]',k,e?.message||'');
+if(k==='blocked') return J({reply:'Maaf, aku tidak bisa menjawab pertanyaan itu. Coba tanyakan dengan cara lain tentang karhutla, lahan gambut, asap, atau pencegahan kebakaran.',materials:[],contacts:[],blocked:true});
+return err(k==='quota'?503:k==='timeout'?504:502,k);
   }
   const materials=picked.map(r=>{let s=[];try{s=JSON.parse(r.sources_json)||[];}catch(e){}return {slug:r.slug,title:r.title,sources:s.filter(x=>x&&typeof x.u==='string'&&/^https?:\/\//.test(x.u)).map(x=>({t:String(x.t||x.u),u:x.u}))};});
   const allowed=materials.flatMap(m=>m.sources.map(s=>s.u));
