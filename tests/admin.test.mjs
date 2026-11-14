@@ -1,0 +1,100 @@
+import {makeDB} from './d1shim.mjs';
+import {handle as adminH} from '../functions/_lib/routes/admin.js';
+import {handle as repH} from '../functions/_lib/routes/reports.js';
+import {onRequest as pubH} from '../functions/api/[[route]].js';
+import {handle as playerH} from '../functions/_lib/routes/player.js';
+import {handle as quizH} from '../functions/_lib/routes/quiz.js';
+import {handle as lbH} from '../functions/_lib/routes/leaderboard.js';
+import {csv} from '../functions/_lib/admin.js';
+const store=new Map();
+const env={DB:makeDB(['0001_schema','0002_seed_produksi','0003_edukasi_draf','0004_soal_awal','0005_game','0006_materi_lengkap','0007_soal_lengkap','0008_sumber_ispa','0010_kontak_damkar','0011_soal_tambahan'].map(f=>`migrations/${f}.sql`)),ADMIN_SETUP_TOKEN:'token-rahasia-uji'};
+const raw=env.DB.raw;let fail=0;const ok=(c,m)=>{console.log((c?'LULUS ':'GAGAL ')+m);if(!c)fail++;};
+const call=async(h,path,{method='GET',body,cookie,csrf=true,headers={},isForm}={})=>{
+  const hd={...(isForm?{}:{'content-type':'application/json'}),...(cookie?{cookie}:{}),...(csrf?{'x-az-csrf':'1'}:{}),...headers};
+  const res=await h({request:new Request('http://x/api/'+path,{method,headers:hd,body:isForm?body:(body?JSON.stringify(body):undefined)}),env,params:{route:path.split('/').slice(1).filter(Boolean)}});
+  const ct=res.headers.get('content-type')||'';return {s:res.status,j:ct.includes('json')?await res.json():null,t:ct.includes('json')?null:await res.text(),sc:res.headers.get('set-cookie')};};
+const A=(p,o)=>call(adminH,'admin/'+p,o);
+// --- setup & batas 5 admin ---
+let r=await A('setup',{method:'POST',body:{token:'salah',username:'admin1',password:'passwordpanjang123'}});ok(r.s===403,'setup dengan token salah ditolak');
+r=await A('setup',{method:'POST',body:{token:env.ADMIN_SETUP_TOKEN,username:'admin1',password:'pendek'}});ok(r.s===400,'password pendek ditolak');
+r=await A('setup',{method:'POST',body:{token:env.ADMIN_SETUP_TOKEN,username:'admin1',password:'passwordpanjang123'}});ok(r.s===201,'admin pertama dibuat');
+raw.exec('DELETE FROM rate_limits');
+for(const n of [2,3,4]) await A('setup',{method:'POST',body:{token:env.ADMIN_SETUP_TOKEN,username:'admin'+n,password:'passwordpanjang123'}});
+raw.exec('DELETE FROM rate_limits');
+const race=await Promise.all([5,6].map(n=>A('setup',{method:'POST',body:{token:env.ADMIN_SETUP_TOKEN,username:'admin'+n,password:'passwordpanjang123'}})));
+ok(race.filter(x=>x.s===201).length===1&&race.filter(x=>x.s===409).length===1,'dua pembuatan bersamaan: hanya satu lolos batas 5 admin');
+ok(raw.prepare('SELECT COUNT(*) c FROM admin_users WHERE active=1').get().c===5,'database berisi tepat 5 admin aktif');
+ok(!JSON.stringify(raw.prepare('SELECT pass_hash FROM admin_users').all()).includes('passwordpanjang123'),'password tidak disimpan polos (PBKDF2)');
+// --- login ---
+r=await A('login',{method:'POST',body:{username:'admin1',password:'salah-salah-salah'}});ok(r.s===401,'login salah ditolak');
+r=await A('login',{method:'POST',body:{username:'admin1',password:'passwordpanjang123'}});ok(r.s===200&&/HttpOnly/.test(r.sc)&&/Secure/.test(r.sc)&&/SameSite=Strict/.test(r.sc),'login benar: cookie HttpOnly, Secure, SameSite=Strict');
+const ck=r.sc.split(';')[0];
+r=await A('summary');ok(r.s===401,'endpoint admin tanpa sesi ditolak');
+r=await A('summary',{cookie:'az_admin='+'0'.repeat(64)});ok(r.s===401,'token sesi palsu ditolak');
+r=await A('summary',{cookie:ck});ok(r.s===200&&r.j.admins_active===5,'ringkasan dengan sesi sah');
+r=await A('settings',{method:'PUT',cookie:ck,csrf:false,body:{pass_threshold:70}});ok(r.s===403,'perubahan tanpa header CSRF ditolak');
+for(let i=0;i<9;i++) r=await A('login',{method:'POST',body:{username:'admin2',password:'x'+i+'xxxxxxxxxxxx'}});ok(r.s===429,'percobaan login dibatasi (429)');
+// --- pemulihan: reset password lewat token setup ---
+raw.exec('DELETE FROM rate_limits');
+r=await A('setup',{method:'POST',body:{token:env.ADMIN_SETUP_TOKEN,username:'admin1',password:'passwordbaru12345'}});ok(r.j.reset===true,'pemulihan akses: reset password via token');
+r=await A('summary',{cookie:ck});ok(r.s===401,'sesi lama dicabut setelah reset');
+env.DB.raw.exec('DELETE FROM rate_limits');
+r=await A('login',{method:'POST',body:{username:'admin1',password:'passwordbaru12345'}});const ck2=r.sc.split(';')[0];ok(r.s===200,'login dengan password baru');
+// --- soal, materi, kontak, pengaturan ---
+const q={kind:'level',level:2,category:'penyebab',question:'Soal uji panjang?',options:['a','b','c'],correct_index:1,explanation:'Penjelasan uji.'};
+r=await A('questions',{method:'POST',cookie:ck2,body:{...q,options:['hanya satu']}});ok(r.s===400,'soal dengan 1 opsi ditolak');
+r=await A('questions',{method:'POST',cookie:ck2,body:{...q,correct_index:5}});ok(r.s===400,'kunci di luar opsi ditolak');
+r=await A('questions',{method:'POST',cookie:ck2,body:q});ok(r.s===200,'soal dibuat');
+const qid=raw.prepare("SELECT id FROM quiz_questions WHERE question='Soal uji panjang?'").get().id;
+r=await A('questions/'+qid,{method:'DELETE',cookie:ck2});ok(raw.prepare('SELECT active FROM quiz_questions WHERE id=?').get(qid).active===0,'soal dinonaktifkan (bukan dihapus)');
+r=await pubH({request:new Request('http://x/api/content'),env,params:{route:['content']}});ok((await r.json()).rows.length===9,'9 materi terbit tampil publik');
+r=await A('content/pengertian',{method:'PUT',cookie:ck2,body:{title:'Pengertian karhutla',body_md:'Isi materi diperiksa tim.',sources:[{t:'Sumber',u:'https://kemkes.go.id/x'}],published:false,sort:1}});ok(r.s===200,'admin mengubah materi menjadi draf');
+r=await pubH({request:new Request('http://x/api/content'),env,params:{route:['content']}});ok((await r.json()).rows.length===8,'materi draf tidak tampil publik');
+r=await A('content/pengertian',{method:'PUT',cookie:ck2,body:{title:'x',body_md:'Isi cukup',sources:[{t:'Sumber',u:'javascript:alert(1)'}]}});ok(r.s===400,'URL sumber berbahaya (javascript:) ditolak');
+r=await A('contacts',{method:'POST',cookie:ck2,body:{name:'BPBD Uji',phone_intl:'0812345'}});ok(r.s===400,'nomor tidak internasional ditolak');
+r=await A('contacts',{method:'POST',cookie:ck2,body:{name:'BPBD Uji',phone_intl:'6281234567890',verified:false}});ok(r.s===200,'kontak ditambah admin');
+r=await A('contacts',{method:'POST',cookie:ck2,body:{name:'Kode pendek',phone_intl:'12'}});ok(r.s===400,'kode terlalu pendek ditolak');
+r=await A('contacts',{method:'POST',cookie:ck2,body:{name:'Kode 117 uji',phone_intl:'117'}});ok(r.s===200,'kode pendek 3 digit diterima');
+r=await A('settings',{method:'PUT',cookie:ck2,body:{pass_threshold:150}});ok(r.s===400,'ambang di luar 1-100 ditolak');
+r=await A('settings',{method:'PUT',cookie:ck2,body:{pass_threshold:70}});ok(r.j.pass_threshold===70,'ambang kelulusan diubah');
+// --- tinjauan skor ---
+const pl=await call(playerH,'player',{method:'POST',body:{display_name:'Dewi'},csrf:false});const tok=pl.j.recovery_code;
+const quizFast=async()=>{const s=await call(quizH,'quiz/start',{method:'POST',body:{kind:'pre'},headers:{authorization:'Bearer '+tok},csrf:false});
+  for(const x of s.j.questions){const key=raw.prepare('SELECT correct_index k FROM quiz_questions WHERE id=?').get(x.id).k;await call(quizH,'quiz/answer',{method:'POST',body:{attempt_id:s.j.attempt_id,question_id:x.id,chosen_index:key},headers:{authorization:'Bearer '+tok},csrf:false});}
+  return (await call(quizH,'quiz/finish',{method:'POST',body:{attempt_id:s.j.attempt_id},headers:{authorization:'Bearer '+tok},csrf:false})).j};
+const fin=await quizFast();ok(fin.flagged===true,'pengerjaan kilat ditandai');
+ok(raw.prepare('SELECT COUNT(*) c FROM learning_assessments').get().c===0,'tidak masuk analitik sebelum ditinjau');
+r=await A('flags',{cookie:ck2});ok(r.j.attempts.length===1,'muncul di antrean tinjauan');
+await A('flags',{method:'POST',cookie:ck2,body:{type:'attempt',id:raw.prepare('SELECT id FROM quiz_attempts').get().id,action:'approve'}});
+ok(raw.prepare('SELECT COUNT(*) c FROM learning_assessments').get().c===1,'setelah disetujui admin, masuk analitik');
+// --- ekspor ---
+r=await A('export/aggregate.csv',{cookie:ck2});ok(r.s===200&&r.t.startsWith('metrik,nilai')&&!r.t.includes('Dewi'),'CSV agregat tanpa data pribadi');
+ok(csv([['=HYPERLINK("x")','+1','biasa']]).startsWith("\"'=HYPERLINK")||csv([['=cmd']]).startsWith("'="),'CSV menetralkan formula (CSV injection)');
+r=await A('export/backup.sql',{cookie:ck2});ok(r.s===200&&r.t.includes('INSERT OR REPLACE INTO players')&&!r.t.includes('pbkdf2')&&!r.t.includes('admin_users'),'cadangan SQL tanpa akun admin/hash');
+r=await A('audit',{cookie:ck2});ok(r.j.rows.length>5&&r.j.rows.some(x=>x.action==='settings.threshold'),'audit log mencatat tindakan penting');
+r=await A('admins/'+raw.prepare("SELECT id FROM admin_users WHERE username='admin1'").get().id,{method:'PUT',cookie:ck2,body:{active:0}});ok(r.s===400,'tidak bisa menonaktifkan akun sendiri');
+// --- pelaporan warga ---
+const rep=(b,extra)=>call(repH,'reports',{method:'POST',body:b,csrf:false,...extra});
+r=await rep({description:'pendek'});ok(r.s===400,'deskripsi terlalu pendek ditolak');
+r=await rep({description:'Ada asap tebal di lahan dekat jalan desa'});ok(r.s===400,'lokasi wajib (GPS atau teks)');
+r=await rep({description:'Ada asap tebal di lahan dekat jalan desa',lat:999,lng:1});ok(r.s===400,'koordinat tidak valid ditolak');
+r=await rep({description:'Ada asap tebal di lahan dekat jalan desa',lat:-3.12345678,lng:114.7,location_text:'Desa Contoh'});ok(r.s===201&&/^LP-[0-9A-F]{10}$/.test(r.j.id)&&/belum otomatis/.test(r.j.note),'laporan dibuat; catatan jujur soal belum otomatis diteruskan');
+const lid=r.j.id;ok(raw.prepare('SELECT lat FROM citizen_reports WHERE id=?').get(lid).lat===-3.12346,'koordinat dibulatkan');
+r=await call(repH,'reports/'+lid);ok(r.s===200&&r.j.status==='menunggu'&&!('lat'in r.j)&&!('description'in r.j),'cek status publik tanpa lokasi/isi laporan');
+r=await rep({description:'bot bot bot bot bot bot',location_text:'x y z',website:'http://spam'});ok(r.s===201&&r.j.id==='LP-0000000000'&&raw.prepare('SELECT COUNT(*) c FROM citizen_reports').get().c===1,'honeypot: bot tidak tersimpan');
+raw.exec('DELETE FROM rate_limits');
+const fd=(file)=>{const f=new FormData();f.set('description','Ada api kecil di semak dekat kebun warga');f.set('location_text','Dusun Contoh');if(file)f.set('photo',file,'f.jpg');return f;};
+r=await call(repH,'reports',{method:'POST',body:fd(new File([new Uint8Array([0xFF,0xD8,0xFF,1,2,3])],'f.jpg')),isForm:true,csrf:false});ok(r.s===201&&/belum diaktifkan/.test(r.j.photo),'tanpa R2: foto tidak disimpan dan dijelaskan jelas');
+env.PHOTOS={put:async(k,b,o)=>store.set(k,{b,o}),get:async k=>store.has(k)?{body:store.get(k).b,httpMetadata:store.get(k).o.httpMetadata}:null};
+r=await call(repH,'reports',{method:'POST',body:fd(new File([new Uint8Array([0xFF,0xD8,0xFF,1,2,3])],'f.jpg')),isForm:true,csrf:false});ok(r.s===201&&r.j.photo==='tersimpan'&&store.size===1,'dengan R2: foto JPEG tersimpan');
+r=await call(repH,'reports',{method:'POST',body:fd(new File([new TextEncoder().encode('<script>alert(1)</script>')],'x.jpg',{type:'image/jpeg'})),isForm:true,csrf:false});ok(r.s===400,'berkas bukan gambar (cek byte awal) ditolak');
+for(let i=0;i<3;i++)r=await rep({description:'Laporan ke-'+i+' untuk uji batas laju',location_text:'Desa A'});ok(r.s===429,'laporan dibatasi per perangkat (429)');
+r=await A('reports',{cookie:ck2});ok(r.j.rows.length>=3&&r.j.rows[0].lat!==undefined,'admin melihat laporan lengkap termasuk lokasi');
+r=await A('reports/'+lid,{method:'PUT',cookie:ck2,body:{status:'ditinjau'}});r=await call(repH,'reports/'+lid);ok(r.j.status==='ditinjau','status laporan diubah admin dan terlihat pelapor');
+r=await A('report-photo/'+[...store.keys()][0],{cookie:ck2});ok(r.s===200,'foto hanya bisa dilihat admin');
+r=await call(adminH,'admin/report-photo/'+[...store.keys()][0]);ok(r.s===401,'foto tanpa sesi admin ditolak');
+r=await A('missions/c1m1',{method:'PUT',cookie:ck2,body:{max_points:-5,min_duration_s:10,active:true}});ok(r.s===400,'poin misi negatif ditolak');
+r=await A('missions/c1m1',{method:'PUT',cookie:ck2,body:{max_points:100,min_duration_s:15,active:true,educational:true}});ok(r.s===200&&raw.prepare("SELECT max_points m FROM game_mission_defs WHERE mission_id='c1m1'").get().m===100,'admin mengubah konfigurasi misi');
+r=await A('reports/'+lid,{method:'DELETE',cookie:ck2});ok(r.s===200&&!raw.prepare('SELECT 1 x FROM citizen_reports WHERE id=?').get(lid),'admin menghapus laporan');
+ok(!JSON.stringify(raw.prepare('SELECT k FROM rate_limits').all()).match(/\d+\.\d+|:x/),'kunci pembatas laju tidak memuat IP mentah');
+console.log(fail?`\n${fail} UJI GAGAL`:'\nSemua uji lulus');process.exit(fail?1:0);

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Papan skor - AnsepZero</title><meta name="theme-color" content="#0d1411">
+<link rel="stylesheet" href="/assets/css/app.css"><script src="/assets/js/nav.js" defer></script>
+</head><body>
+<main class="wrap"><h1 class="ptitle">Papan skor</h1><div class="tabs" role="group" aria-label="Periode"><button data-p="all" aria-pressed="true">Semua</button><button data-p="month" aria-pressed="false">30 hari</button><button data-p="week" aria-pressed="false">7 hari</button></div>
+<div class="panel" id="lb" style="padding:0"></div><p class="note" id="fm"></p></main>
+<script type="module">
+const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a))e.setAttribute(x,v);for(const c of k)e.append(c);return e};
+const nf=n=>Number(n).toLocaleString('id-ID');
+async function load(p){const box=document.getElementById('lb');
+  try{const r=await fetch('/api/leaderboard?period='+p);if(!r.ok)throw 0;const d=await r.json();
+    document.getElementById('fm').textContent=d.formula+(p!=='all'?' Filter periode menampilkan pemain yang skornya diperbarui pada periode itu.':'');
+    if(!d.rows.length){box.replaceChildren(h('div',{class:'empty',style:'margin:12px'},'Belum ada pemain di papan skor. Jadilah yang pertama lewat Kuis atau Misi Penjaga Hutan.'));return}
+    box.replaceChildren(...d.rows.map(x=>h('div',{class:'row'},h('div',{class:'rk'},String(x.rank)),
+      h('div',{},h('b',{},x.name),h('div',{class:'sub'},`Kuis ${nf(x.quiz_points)} | Petualangan ${nf(x.adventure_points)} | ${x.missions_done} misi | edukasi ${x.education_progress_pct}%`),
+        h('div',{class:'ach'},...x.achievements.map(a=>h('span',{},a)))),h('div',{class:'sc'},nf(x.total_points)))));
+  }catch(e){box.replaceChildren(h('div',{class:'empty',style:'margin:12px'},'Papan skor belum dapat dimuat.'))}}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-pressed',x===b));load(b.dataset.p)});
+load('all');
+</script></body></html>
