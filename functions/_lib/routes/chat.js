@@ -1,4 +1,4 @@
-// Penjaga Hutan AI: POST /api/chat, GET /api/chat (status konfigurasi). Tanpa penyimpanan percakapan.
+// Penjaga Hutan AI: POST /api/chat, GET /api/chat (status konfigurasi). Tanpa penyimpanan percakapan. 
 // Penyedia model (dipilih otomatis, tidak ada kunci di frontend):
 //   1. Google Gemini, jika secret GEMINI_API_KEY diatur (variabel GEMINI_MODEL opsional, bawaan gemini-2.5-flash).
 //   2. API kompatibel OpenAI, jika secret AI_API_KEY + variabel AI_BASE_URL + AI_MODEL diatur.
