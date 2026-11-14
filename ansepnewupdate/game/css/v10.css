@@ -1,0 +1,161 @@
+/* v1.0 Alpha — tombol LARI, dialog sinematik, judul, banner, kartu perlengkapan. Memakai gaya pixel v0.6. */
+#actions{pointer-events:none}#actions #btn-act{pointer-events:auto}   /* wadah INTERAKSI tidak boleh menelan sentuhan tombol LARI */
+#btn-run{position:absolute;z-index:8;right:calc(max(16px,env(safe-area-inset-right)) + clamp(96px,22vh,112px) + 14px);bottom:max(16px,env(safe-area-inset-bottom));width:68px;height:68px;border-radius:0;border:3px solid var(--ink);
+  background:linear-gradient(#5fb6e8,#2f7fc0);color:#06203a;font-weight:800;font-size:13px;letter-spacing:.5px;box-shadow:inset 0 3px 0 rgba(255,255,255,.4),inset 0 -3px 0 rgba(0,0,0,.25),0 5px 0 var(--ink);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#btn-run.on{background:linear-gradient(#ffd36a,#e0a020);transform:translateY(3px);box-shadow:inset 0 2px 0 rgba(0,0,0,.25),0 2px 0 var(--ink)}
+#btn-run[hidden]{display:none}
+body.mode-pc #btn-run,body.frozen #btn-run,body.cutscene #btn-run{display:none!important}
+@media (max-height:380px){#btn-run{width:58px;height:58px;font-size:11px}}
+/* cutscene skrip */
+#cine.manual .cine-cap{bottom:auto;top:calc(clamp(34px,10vh,64px) + 10px)}
+#cine-say{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(clamp(34px,10vh,64px) + 8px);width:min(760px,94vw);max-height:34vh;overflow:hidden;pointer-events:auto;cursor:pointer;
+  background:rgba(8,26,18,.92);border:3px solid var(--ink);box-shadow:inset 0 0 0 2px var(--hi),0 5px 0 rgba(0,0,0,.45);padding:8px 12px 8px;color:var(--cream);z-index:6}
+#cine-say.narr{background:rgba(5,12,9,.88);text-align:center}
+#cine-say[hidden]{display:none}
+.say-name{display:inline-block;background:var(--gold);color:#2a1604;font-weight:800;font-size:clamp(11px,2.6vh,15px);padding:1px 9px;margin:-18px 0 4px;border:2px solid var(--ink);text-shadow:none}
+.say-txt{margin:0;font-weight:700;font-size:clamp(13px,3.1vh,19px);line-height:1.38;min-height:2.7em;text-shadow:1px 1px 0 #000}
+.say-row{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.say-row button{font-family:var(--px);font-weight:800;font-size:clamp(11px,2.4vh,14px);min-height:30px;padding:2px 12px;border:2px solid var(--ink);background:linear-gradient(#2f6a4c,#1c4a35);color:var(--cream);box-shadow:0 3px 0 var(--ink);cursor:pointer}
+#say-next{background:linear-gradient(#ffb04a,#e07a1a);color:#2a1604}
+#cine-title{position:absolute;left:0;right:0;top:30%;display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;opacity:0;transform:scale(.9);transition:opacity 1.2s,transform 2.5s ease-out;text-align:center}
+#cine-title.on{opacity:1;transform:scale(1)}
+#cine-title .t-top{font-size:clamp(18px,5vh,34px);font-weight:800;color:var(--gold);letter-spacing:.6em;text-shadow:0 3px 0 #7a4a0a,0 0 8px #000}
+#cine-title .t-main{font-size:clamp(28px,9vh,64px);font-weight:900;color:#fff;letter-spacing:.14em;text-shadow:0 4px 0 #1b5a30,0 0 12px #000}
+#cine-title .t-sub{font-size:clamp(12px,3vh,20px);color:var(--cream);letter-spacing:.3em;text-shadow:0 2px 0 #000;margin-top:6px}
+#cine-banner{position:absolute;left:0;right:0;top:22%;text-align:center;pointer-events:none;opacity:0;display:flex;flex-direction:column;gap:6px;align-items:center}
+#cine-banner.on{animation:bannerIn 1s steps(8) forwards}
+#cine-banner b{font-size:clamp(20px,6.2vh,44px);color:var(--gold);background:rgba(6,20,13,.82);border:3px solid var(--ink);box-shadow:inset 0 0 0 2px var(--hi);padding:6px 18px;text-shadow:0 3px 0 #7a4a0a;letter-spacing:.08em}
+#cine-banner span{font-size:clamp(12px,3vh,20px);color:#fff;text-shadow:0 2px 0 #000;font-weight:700}
+@keyframes bannerIn{from{opacity:0;transform:translateY(-14px) scale(.92)}to{opacity:1;transform:none}}
+#cine-gear{position:absolute;left:50%;top:18%;transform:translateX(-50%);background:rgba(6,20,13,.9);border:3px solid var(--ink);box-shadow:inset 0 0 0 2px var(--hi);padding:8px 14px;text-align:center;pointer-events:none;opacity:0}
+#cine-gear.on{opacity:1;animation:popIn .3s steps(4)}
+#cine-gear p{margin:0 0 6px;color:var(--gold);font-weight:800;font-size:clamp(11px,2.8vh,16px)}
+#cine-gear div{display:flex;gap:10px}
+#cine-gear figure{margin:0;width:clamp(54px,14vh,84px);opacity:0;animation:gearIn .35s steps(4) forwards}
+#cine-gear img{width:clamp(34px,9vh,52px);height:clamp(34px,9vh,52px);image-rendering:pixelated;background:#143f2e;border:2px solid var(--ink);padding:3px}
+#cine-gear figcaption{font-size:clamp(9px,2.1vh,12px);color:var(--cream);line-height:1.1;margin-top:2px}
+@keyframes gearIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+body.cutscene #btn-run{display:none!important}
+
+/* v2.0: tombol INTERAKSI kontekstual — hanya tampil saat ada target sah (tata letak tetap, tanpa lompatan) */
+#actions #act-hint,#actions #btn-act{transition:opacity .15s,transform .15s}
+#actions.idle #act-hint{opacity:0;visibility:hidden}
+#actions.idle #btn-act{opacity:0;transform:scale(.8);pointer-events:none;visibility:hidden}
+#actions.ready #btn-act{animation:none}
+body.mode-pc #actions.idle #act-hint{display:none}
+
+/* ===== v2.0 GUI ringan: HUD, tombol, dialog bawah layar ===== */
+#hud .hud-title{display:none}                                  /* judul/versi dipindah ke menu: ruang atas untuk gameplay */
+#hud{justify-content:flex-end}
+#btn-missions{top:calc(max(6px,env(safe-area-inset-top)) + 4px);width:min(212px,34vw)}
+@media (max-height:460px){#btn-missions{top:calc(max(6px,env(safe-area-inset-top)) + 4px)}}
+/* tombol kanan: INTERAKSI di atas LARI (tidak berdampingan, tidak saling menutup) */
+#btn-run{right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));width:clamp(104px,26vh,132px);height:clamp(50px,15vh,62px);font-size:15px}
+#actions{bottom:calc(max(16px,env(safe-area-inset-bottom)) + clamp(50px,15vh,62px) + 14px)}
+#btn-act{width:clamp(104px,26vh,132px);height:clamp(54px,16vh,66px)}
+@media (max-height:380px){#btn-run{width:96px;height:46px;font-size:12px}#actions{bottom:calc(max(10px,env(safe-area-inset-bottom)) + 58px)}#btn-act{width:96px;height:50px}}
+/* dialog: panel pendek di bawah layar, pilihan di kolom kanan, NPC & lingkungan tetap terlihat */
+#dialog{padding:0 max(8px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+#dialog .dlg-box{width:min(840px,100%);max-height:min(34vh,190px);padding:5px 10px 7px;gap:3px;animation:none}
+#dialog .dlg-head{gap:6px}
+#dialog #dlg-ic{width:28px;height:28px}
+#dialog .dlg-head h3{font-size:14px}
+#dialog #dlg-x{width:34px;height:30px;font-size:15px}
+#dialog .dlg-foot{display:none}
+#dialog .dlg-body{flex-direction:row;gap:10px;align-items:stretch}
+#dialog .dlg-text{flex:1 1 0;font-size:14px;line-height:1.35;min-height:0}
+#dialog .dlg-actions{flex:0 1 34%;min-width:120px;gap:4px}
+#dialog .dlg-next,#dialog .dlg-choice{min-height:38px;padding:5px 10px;font-size:13px}
+@media (max-width:600px) and (orientation:portrait){#dialog .dlg-box{max-height:42vh}#dialog .dlg-body{flex-direction:column}#dialog .dlg-actions{flex:none}}
+/* hemat render: elemen tak terlihat tidak membuat animasi */
+body.frozen #btn-act{animation:none}
+
+/* ===== v2.0 minimap & peta desa ===== */
+#minimap{display:none;position:absolute;z-index:6;right:max(8px,env(safe-area-inset-right));top:calc(max(6px,env(safe-area-inset-top)) + 62px);width:clamp(76px,24vh,104px);height:clamp(76px,24vh,104px);padding:0;border-radius:50%;border:3px solid var(--ink);box-shadow:0 0 0 2px var(--hi),0 3px 0 2px var(--ink);background:#0b2a1f;overflow:hidden;touch-action:manipulation}
+#minimap canvas{width:100%;height:100%;display:block}
+body.playing #minimap{display:block}
+body.frozen #minimap,body.cutscene #minimap{display:none!important}
+#worldmap{position:absolute;inset:0;z-index:18;display:flex;align-items:center;justify-content:center;background:rgba(3,12,8,.62);padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+#worldmap[hidden]{display:none}
+.wm-box{width:min(960px,100%);max-height:100%;display:flex;flex-direction:column;gap:6px;background:var(--pn);border:3px solid var(--ink);box-shadow:inset 0 0 0 2px var(--hi),0 6px 0 rgba(0,0,0,.45);padding:6px 10px 8px}
+.wm-box .mp-top{padding:0 0 4px}.wm-box h2{margin:0;font-size:16px}
+#wm-close{width:44px;height:36px;font-size:18px;background:#7a5230;border:2px solid #b98a57;flex:none}
+.wm-stage{min-height:0;overflow:hidden;background:#0b2a1f;border:2px solid var(--ink)}
+#wm-cv{width:100%;height:auto;max-height:calc(100vh - 150px);max-height:calc(100dvh - 150px);object-fit:contain;display:block;image-rendering:pixelated;cursor:pointer}
+#wm-info{font-size:12px;line-height:1.35;min-height:2.7em;color:var(--cream)}
+.wm-legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;opacity:.95}
+.wm-legend span{display:inline-flex;align-items:center;gap:5px}
+.lg{display:inline-block;width:10px;height:10px;border:2px solid var(--ink)}
+.lg.me{background:#fff}.lg.act{background:#ffd36a}.lg.done{background:#7be08f}.lg.fire{background:#ff5a3a}.lg.place{background:#f6efd8}
+
+/* ===== v3.0 layout HUD (mengikuti referensi): panel misi tengah-bawah, ikon pengaturan, minimap besar, tombol kecil ===== */
+:root{--mm:clamp(104px,34vh,156px);--gear:44px}
+body #hud .hud-btns{position:relative;margin-left:auto}
+#btn-gear{width:var(--gear);height:var(--gear);padding:0;border-radius:50%;background:#0f3b2e center/60% no-repeat;image-rendering:pixelated;border:3px solid var(--ink);box-shadow:0 0 0 2px var(--hi),0 3px 0 2px var(--ink);pointer-events:auto}
+#btn-gear[aria-expanded=true]{background-color:#1d6a4d}
+#gear-menu{display:none;position:absolute;top:calc(100% + 8px);right:0;z-index:12;flex-direction:column;gap:6px;padding:8px;background:var(--pn);border:3px solid var(--ink);box-shadow:inset 0 0 0 2px var(--hi),0 4px 0 rgba(0,0,0,.4)}
+body.gear-open #gear-menu{display:flex}
+#gear-menu .btn-sm{min-width:132px;height:40px;pointer-events:auto;font-size:13px}
+/* panel misi -> tengah bawah, ringkas */
+body #btn-missions{position:absolute;left:50%;top:auto;right:auto;bottom:max(8px,env(safe-area-inset-bottom));transform:translateX(-50%);width:clamp(210px,33vw,300px);padding:5px 9px 6px;border-radius:0;font-size:11px;line-height:1.25;z-index:5}
+body #btn-missions .tr-top{font-size:10px}
+body #btn-missions #tr-name{font-size:12px}
+body #btn-missions #tr-objs{font-size:10px;max-height:2.6em;overflow:hidden}
+/* v2.1: panel bab & misi bisa dikecilkan: tombol kecil di pojok kanan atas panel; dikecilkan = chip ringkas */
+body #btn-missions .tr-top{padding-right:28px}
+body #tr-min{display:block;top:4px;right:4px;width:22px;height:22px}
+body.tr-min #btn-missions{width:auto;min-width:150px;max-width:min(300px,60vw);max-height:32px;padding:4px 32px 4px 10px;white-space:nowrap}
+body.tr-min #btn-missions .tr-mini{display:block;font-size:11px;line-height:22px}
+body.tr-min #btn-missions #tr-min{top:4px;right:4px}
+body.mode-pc #btn-missions{left:8px;top:calc(max(6px,env(safe-area-inset-top)) + 4px);bottom:auto;transform:none}
+body #popup{bottom:calc(max(8px,env(safe-area-inset-bottom)) + 84px)}
+/* minimap besar di bawah ikon pengaturan; zoom di sisi kirinya */
+#minimap{width:var(--mm);height:var(--mm);top:calc(max(6px,env(safe-area-inset-top)) + var(--gear) + 8px)}
+#zoombar{display:none;position:absolute;z-index:6;flex-direction:column;gap:6px;right:calc(max(8px,env(safe-area-inset-right)) + var(--mm) + 8px);top:calc(max(6px,env(safe-area-inset-top)) + var(--gear) + 14px)}
+body.playing #zoombar{display:flex}
+body.frozen #zoombar,body.cutscene #zoombar{display:none!important}
+#zoombar button{width:38px;height:38px;padding:0;font:700 22px/1 monospace;color:var(--cream);background:var(--pn);border:3px solid var(--ink);box-shadow:inset 0 0 0 2px var(--hi);pointer-events:auto;touch-action:manipulation}
+#zoombar button:disabled{opacity:.4}
+/* tombol interaksi & lari: lebih kecil, label ringkas tanpa awalan */
+#btn-act{width:clamp(88px,20vh,108px);height:clamp(36px,10vh,46px);font-size:12px}
+#btn-run{width:clamp(88px,20vh,108px);height:clamp(38px,10.5vh,48px);font-size:13px}
+#actions{bottom:calc(max(16px,env(safe-area-inset-bottom)) + clamp(38px,10.5vh,48px) + 8px)}
+#act-hint{font-size:10px;line-height:1.2;padding:3px 6px;max-width:132px}
+#actions.ready #act-hint:not(:empty)::before{content:none}
+@media (max-height:380px){#btn-run{width:84px;height:38px;font-size:11px}#btn-act{width:84px;height:36px;font-size:11px}#actions{bottom:calc(max(10px,env(safe-area-inset-bottom)) + 46px)}}
+/* peta besar: zoom */
+.wm-stage{overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+.wm-zoom{display:flex;gap:6px;margin-left:auto;margin-right:8px}
+.wm-zoom button{width:38px;height:34px;padding:0;font:700 20px/1 monospace;color:var(--cream);background:#245a43;border:2px solid var(--ink)}
+.lg.veh{background:#8fd0f0}
+body #btn-act,body #btn-run{min-width:0;min-height:0}
+
+/* v3.0: menu pengaturan di atas minimap & zoom */
+#hud{z-index:8}
+
+/* menu pengaturan: ikon + label rapi */
+#gear-menu .btn-sm{width:156px;min-width:156px;height:40px;min-height:40px;font-size:0;padding:0;text-align:left}
+#gear-menu .btn-sm::before{inset:auto;left:7px;top:6px;width:26px;height:26px}
+#gear-menu .btn-sm::after{content:attr(data-l);position:absolute;left:44px;top:0;line-height:34px;font-size:13px;font-weight:800;color:var(--cream)}
+
+/* ===== v3.1: sepeda, minimap di sebelah ikon pengaturan, tombol zoom kecil ===== */
+#btn-bike{position:absolute;z-index:8;right:calc(max(16px,env(safe-area-inset-right)) + clamp(88px,20vh,108px) + 8px);bottom:max(16px,env(safe-area-inset-bottom));width:clamp(72px,17vh,88px);height:clamp(38px,10.5vh,48px);min-width:0;min-height:0;padding:0;font-family:inherit;font-weight:800;font-size:12px;line-height:1;letter-spacing:.5px;color:#fff;text-shadow:1px 1px 0 rgba(0,0,0,.6);background:linear-gradient(#5fd07a,#2f9a4a);border:3px solid var(--ink);border-radius:0;box-shadow:inset 0 2px 0 rgba(255,255,255,.35),inset 0 -3px 0 rgba(0,0,0,.25),0 3px 0 var(--ink);touch-action:manipulation}
+#btn-bike.on{background:linear-gradient(#ffd36a,#e0a020);color:#3a2400;text-shadow:none;transform:translateY(3px);box-shadow:inset 0 2px 0 rgba(0,0,0,.25),0 2px 0 var(--ink)}
+#btn-bike[hidden]{display:none}
+body.mode-pc #btn-bike,body.frozen #btn-bike,body.cutscene #btn-bike{display:none!important}
+@media (max-height:380px){#btn-bike{width:68px;height:38px;font-size:10px;right:calc(max(16px,env(safe-area-inset-right)) + 84px + 6px)}}
+/* minimap sejajar di kiri ikon pengaturan (satu baris) -> ruang kanan atas bawah ikon bebas */
+#minimap{top:max(6px,env(safe-area-inset-top));right:calc(max(8px,env(safe-area-inset-right)) + var(--gear) + 8px)}
+#zoombar{gap:4px;right:calc(max(8px,env(safe-area-inset-right)) + var(--gear) + 8px + var(--mm) + 6px);top:calc(max(6px,env(safe-area-inset-top)) + 8px)}
+#zoombar button{width:26px;height:26px;font-size:16px;border-width:2px;box-shadow:inset 0 0 0 1px var(--hi)}
+
+/* ===== v4.0 panel misi kendaraan (kiri atas; mode PC: tengah atas) ===== */
+#vmpanel{position:absolute;z-index:6;left:max(8px,env(safe-area-inset-left));top:max(6px,env(safe-area-inset-top));width:clamp(176px,27vw,236px);display:flex;flex-direction:column;gap:2px;padding:5px 8px 6px;background:var(--pn);border:3px solid var(--ink);box-shadow:inset 0 0 0 2px var(--hi),0 3px 0 rgba(0,0,0,.4);font-size:11px;line-height:1.25;pointer-events:auto}
+#vmpanel[hidden]{display:none}
+#vmpanel b{font-size:12px;color:#ffd36a}
+#vmpanel #vm-obj{color:var(--cream)}
+#vmpanel #vm-extra{color:#9fdcff;font-size:10px;min-height:12px}
+#vmpanel .vm-bar{height:6px;background:#06140d;border:1px solid var(--hi)}
+#vmpanel .vm-bar i{display:block;height:100%;width:0;background:linear-gradient(#7be08f,#3fae5a)}
+body.mode-pc #vmpanel{left:50%;transform:translateX(-50%);top:6px}
+body.cutscene #vmpanel{display:none!important}

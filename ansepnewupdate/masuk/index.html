@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Masuk pemain - AnsepZero</title><meta name="theme-color" content="#0d1411">
+<link rel="stylesheet" href="/assets/css/app.css"><script src="/assets/js/nav.js" defer></script></head><body>
+<main class="wrap narrow">
+<h1 class="ptitle">Masuk sebagai pemain</h1>
+<p class="lead">Tanpa akun dan tanpa data pribadi. Pilih nama tampilan, jangan pakai nama asli lengkap atau nomor telepon.</p>
+<div id="hb" class="warnbox" hidden role="status"></div>
+<form id="f" class="panel" novalidate>
+  <label for="nm">Nama tampilan</label>
+  <input class="t" id="nm" maxlength="20" autocomplete="off" autocapitalize="words" placeholder="Contoh: Penjaga Gambut">
+  <div class="btns"><button class="btn pri" id="go" type="submit">Mulai</button></div>
+  <p class="note" id="err" role="alert"></p>
+</form>
+<details class="panel" style="margin-top:12px"><summary>Sudah punya kode pemulihan?</summary>
+  <label for="cd">Kode pemulihan</label><input class="t" id="cd" autocomplete="off" placeholder="AZ-XXXXXXXX.…">
+  <div class="btns"><button class="btn" id="rs" type="button">Lanjutkan progres</button></div>
+</details>
+<div id="guest" class="panel" style="margin-top:12px" hidden><h3>Main tanpa menyimpan skor</h3>
+  <p class="note">Mode tamu: kamu tetap bisa mencoba game, tetapi skor tidak masuk papan skor.</p>
+  <div class="btns"><button class="btn" id="gb" type="button">Main sebagai tamu</button></div></div>
+<p class="note" id="rec" role="status"></p>
+</main>
+<script type="module">
+import {api,setCode,getCode,clearCode,health,healthMessage,rememberName} from '/assets/js/az.js';
+const $=i=>document.getElementById(i),q=new URLSearchParams(location.search),next=q.get('next');
+const DEST={game:'/game/',kuis:'/kuis/'},dest=DEST[next]||'/kuis/';
+if(next==='game')$('guest').hidden=false;
+const hm=healthMessage(await health());
+if(!hm.ok){$('hb').hidden=false;$('hb').textContent=hm.text;}
+try{localStorage.setItem('az.t','1');localStorage.removeItem('az.t')}catch(e){$('hb').hidden=false;$('hb').textContent='Penyimpanan browser dinonaktifkan (mode privat?). Progres tidak bisa disimpan; kamu tetap dapat main sebagai tamu.';$('guest').hidden=false}
+async function done(){location.replace(dest)}
+if(getCode()){try{const me=await api('player/me');rememberName(me.display_name);await done()}catch(e){if(e.status===401)clearCode()}}
+$('f').onsubmit=async e=>{e.preventDefault();$('err').textContent='';$('go').disabled=true;
+  try{const r=await api('player','POST',{display_name:$('nm').value});
+    if(!r.recovery_code)throw new Error('Respons server tidak lengkap. Cek pemasangan Functions dan database.');
+    rememberName(r.display_name);
+    if(!setCode(r.recovery_code))throw new Error('Penyimpanan browser tidak bisa dipakai. Matikan mode privat lalu coba lagi.');
+    $('rec').textContent='Kode pemulihan kamu: '+r.recovery_code+' . Simpan di tempat aman. Mengalihkan...';setTimeout(done,2800)}
+  catch(x){$('err').textContent=x.message;$('go').disabled=false}};
+$('rs').onclick=async()=>{$('err').textContent='';setCode($('cd').value.trim());try{const me=await api('player/me');rememberName(me.display_name);await done()}catch(x){clearCode();$('err').textContent=x.status===401?'Kode pemulihan tidak valid.':x.message}};
+$('gb').onclick=()=>{try{sessionStorage.setItem('az.guest','1')}catch(e){}location.replace(dest)};
+</script></body></html>

@@ -1,0 +1,52 @@
+import {makeDB} from './d1shim.mjs';
+import {handle as playerH} from '../functions/_lib/routes/player.js';
+import {handle as quizH} from '../functions/_lib/routes/quiz.js';
+import {handle as gameH} from '../functions/_lib/routes/game.js';
+import {handle as lbH} from '../functions/_lib/routes/leaderboard.js';
+import {handle as anH} from '../functions/_lib/routes/analytics.js';
+const env={DB:makeDB(['0001_schema','0002_seed_produksi','0003_edukasi_draf','0004_soal_awal','0005_game','0006_materi_lengkap','0007_soal_lengkap','0008_sumber_ispa','0010_kontak_damkar','0011_soal_tambahan'].map(f=>`migrations/${f}.sql`))};
+const raw=env.DB.raw;let fail=0;const ok=(c,m)=>{console.log((c?'LULUS ':'GAGAL ')+m);if(!c)fail++;};
+const call=async(h,path,method='GET',body,tok)=>{const url='http://x/api/'+path;const r=new Request(url,{method,headers:{'content-type':'application/json',...(tok?{authorization:'Bearer '+tok}:{})},body:body?JSON.stringify(body):undefined});
+  const seg=path.split('/').slice(1);const res=await h({request:r,env,params:{route:seg}});return {s:res.status,j:await res.json()};};
+const mk=async n=>(await call(playerH,'player','POST',{display_name:n})).j.recovery_code;
+const defs=raw.prepare('SELECT * FROM game_mission_defs ORDER BY ord').all();
+ok(defs.length===31&&defs.reduce((a,d)=>a+d.max_points,0)===2940+100,'31 definisi misi (30 + final), total poin 3040');
+const A=await mk('Budi'),B=await mk('Citra'),pidA=A.split('.')[0];
+let r=await call(gameH,'game/mission','POST',{mission_id:'c1m1',points:10},A);ok(r.s===409,'misi sebelum sesi dimulai ditolak');
+await call(gameH,'game/start','POST',{},A);
+r=await call(gameH,'game/mission','POST',{mission_id:'c1m2',points:50},A);ok(r.s===409,'misi tidak berurutan ditolak');
+r=await call(gameH,'game/mission','POST',{mission_id:'xxx',points:50},A);ok(r.s===404,'misi tidak dikenal ditolak');
+r=await call(gameH,'game/mission','POST',{mission_id:'c1m1',points:99999},A);ok(r.s===200&&r.j.points===defs[0].max_points&&r.j.flagged===true,'poin dibatasi max misi; selesai terlalu cepat ditandai');
+let lb=(await lbH({request:new Request('http://x/api/leaderboard'),env})).json?await (await lbH({request:new Request('http://x/api/leaderboard'),env})).json():null;
+ok(lb.rows.length===0,'poin yang ditandai belum masuk papan skor (empty state)');
+r=await call(gameH,'game/mission','POST',{mission_id:'c1m1',points:5},A);ok(r.j.already===true,'misi tidak dihitung dua kali');
+// beri waktu wajar: mundurkan sesi dan misi, lalu selesaikan 2 misi dengan benar
+raw.prepare('DELETE FROM game_missions WHERE player_id=?').run(pidA);
+raw.prepare('UPDATE game_sessions SET started_at=started_at-100000 WHERE id=?').run(pidA);
+r=await call(gameH,'game/mission','POST',{mission_id:'c1m1',points:defs[0].max_points},A);ok(r.s===200&&!r.j.flagged&&r.j.stars===3,'misi wajar: poin penuh, 3 bintang, tidak ditandai');
+raw.prepare('UPDATE game_missions SET completed_at=completed_at-100000 WHERE player_id=?').run(pidA);
+r=await call(gameH,'game/mission','POST',{mission_id:'c1m2',points:Math.floor(defs[1].max_points*0.75)},A);ok(r.j.stars===2,'bintang diturunkan server dari rasio poin (75% -> 2)');
+lb=await (await lbH({request:new Request('http://x/api/leaderboard'),env})).json();
+const expAdv=Math.round(1000*(defs[0].max_points+Math.floor(defs[1].max_points*0.75))/3040);
+ok(lb.rows.length===1&&lb.rows[0].name==='Budi'&&lb.rows[0].adventure_points===expAdv&&lb.rows[0].missions_done===2,'papan skor: skor petualangan dinormalisasi server ('+expAdv+')');
+ok(!JSON.stringify(lb).includes(pidA)&&!JSON.stringify(lb).includes('secret'),'papan skor tidak membocorkan ID/rahasia');
+// sync progres lama pemain B: ditahan
+r=await call(gameH,'game/sync','POST',{mission_ids:['c1m1','c1m2','c1m4']},B);ok(r.j.imported===2,'sync hanya urutan berkelanjutan dari awal (2 dari 3)');
+lb=await (await lbH({request:new Request('http://x/api/leaderboard'),env})).json();ok(lb.rows.length===1,'progres hasil sync ditahan sampai ditinjau admin');
+// kuis + analitik
+const quiz=async(tok,kind,level,correctAll)=>{const s=await call(quizH,'quiz/start','POST',{kind,level},tok);
+  for(const q of s.j.questions){const key=raw.prepare('SELECT correct_index k FROM quiz_questions WHERE id=?').get(q.id).k;const pick=correctAll?key:q.options.find(o=>o.i!==key).i;await call(quizH,'quiz/answer','POST',{attempt_id:s.j.attempt_id,question_id:q.id,chosen_index:pick},tok);}
+  raw.prepare('UPDATE quiz_attempts SET started_at=started_at-500 WHERE id=?').run(s.j.attempt_id);return (await call(quizH,'quiz/finish','POST',{attempt_id:s.j.attempt_id},tok)).j;};
+let x=await quiz(A,'pre',null,false);ok(x.pct===0&&!x.passed,'evaluasi awal 0% -> perlu belajar lagi');
+x=await quiz(A,'level',1,true);ok(x.pct===100,'level 1 lulus');
+x=await quiz(A,'post',null,true);ok(x.pct===100&&x.passed,'evaluasi akhir 100%');
+await quiz(B,'pre',null,true);
+const an=await (await anH({request:new Request('http://x/api/analytics'),env})).json();
+ok(an.unique_players===2&&an.assessed===2,'analitik: pemain unik 2, peserta evaluasi 2');
+ok(an.met.count===2&&an.met.den===2&&an.met.pct===100,'analitik: memenuhi kriteria 2 dari 2 (best score) dengan denominator');
+ok(an.comparison.den===1&&an.comparison.improved===1&&an.comparison.avg_pre===0&&an.comparison.avg_post===100&&an.comparison.avg_change_points===100,'analitik: pembanding awal-akhir hanya yang punya keduanya');
+ok(an.levels[0].attempted===1&&an.levels[0].passed===1&&an.levels[1].attempted===0&&an.levels[1].pass_pct_of_attempted===null,'analitik: level tanpa peserta = belum tersedia (null), bukan 0%');
+ok(an.categories.length>0&&an.trend.days.length===30&&an.educational_missions.completed===2,'analitik: kategori, tren 30 hari, misi edukasi (2)');
+lb=await (await lbH({request:new Request('http://x/api/leaderboard'),env})).json();
+ok(lb.rows[0].achievements.includes('Memenuhi kriteria pemahaman')&&lb.rows[0].education_progress_pct===20,'pencapaian dan progres edukasi di papan skor');
+console.log(fail?`\n${fail} UJI GAGAL`:'\nSemua uji lulus');process.exit(fail?1:0);

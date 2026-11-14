@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Penjaga Hutan AI - AnsepZero</title>
+<meta name="description" content="Tanya Penjaga Hutan AI tentang karhutla, lahan gambut, asap, dan cara mencegah kebakaran. Asisten edukasi AnsepZero.">
+<meta name="theme-color" content="#0a110e">
+<link rel="stylesheet" href="/assets/css/app.css"><script src="/assets/js/nav.js" defer></script>
+<style>
+.chat{display:flex;flex-direction:column;gap:12px}
+.chead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.chead .ic{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:rgba(63,185,122,.14);flex:0 0 auto}
+.chead h1{margin:0}
+.log{display:flex;flex-direction:column;gap:12px;min-height:220px;max-height:min(58dvh,560px);overflow-y:auto;padding:14px;border:1px solid var(--line);border-radius:var(--r);background:rgba(18,28,23,.7);scroll-behavior:smooth;overscroll-behavior:contain}
+.msg{max-width:min(100%,64ch);padding:10px 14px;border-radius:16px;line-height:1.55;overflow-wrap:anywhere;word-break:break-word}
+.msg p{margin:0 0 .6em}.msg p:last-child{margin-bottom:0}.msg ul{margin:.2em 0 .6em;padding-left:1.2em}.msg li{margin:.2em 0}
+.msg.bot{align-self:flex-start;background:var(--surf2);border:1px solid var(--line)}
+.msg.me{align-self:flex-end;background:var(--grad);color:#04231a;font-weight:600}
+.msg.err{align-self:flex-start;background:rgba(255,122,107,.12);border:1px solid var(--bad)}
+.msg .who{display:block;font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);margin-bottom:4px}
+.msg.me .who{color:#0a3a2a;text-align:right}
+.dots{display:inline-flex;gap:5px;align-items:center;height:1.2em}.dots i{width:7px;height:7px;border-radius:50%;background:var(--cy);opacity:.35;animation:bl 1s infinite}.dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
+@keyframes bl{50%{opacity:1}}
+.srcs{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);font-size:.84rem;color:var(--mut)}
+.srcs ul{margin:.3em 0 0;padding-left:1.1em}.srcs li{margin:.2em 0;overflow-wrap:anywhere}
+.ctc{margin-top:10px;display:grid;gap:8px}.ctc .c{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surf)}
+.ctc .c .note{margin:2px 0 8px}
+.quick{display:flex;flex-wrap:wrap;gap:8px}
+.quick button{min-height:44px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surf2);color:var(--text);font:600 .88rem var(--sans);cursor:pointer;text-align:left}
+.quick button:hover:not(:disabled){border-color:var(--cy)}.quick button:disabled{opacity:.5;cursor:not-allowed}
+.composer{display:flex;gap:10px;align-items:flex-end}
+.composer textarea{min-height:52px;max-height:150px;resize:none;flex:1 1 auto}
+.composer .btn{flex:0 0 auto;min-height:52px}
+.meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:.8rem;color:var(--mut)}
+.status{border-left:4px solid var(--warn);background:var(--surf2);padding:12px 14px;border-radius:0 12px 12px 0;font-size:.94rem}
+@media(max-width:700px){.quick{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin-inline:calc(var(--pad)*-1);padding-inline:var(--pad)}.quick::-webkit-scrollbar{display:none}.quick button{flex:0 0 auto;white-space:nowrap}}
+@media(max-width:480px){.composer .btn{padding:0 16px}}
+</style></head><body>
+<main class="wrap" style="max-width:820px">
+<div class="chat">
+  <div class="chead">
+    <span class="ic" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="none" stroke="#36d1e0" stroke-width="6"/><path d="M32 14l11 16H36l9 13H19l9-13h-7z" fill="#3fb97a"/><rect x="30" y="43" width="4" height="8" fill="#3fb97a"/></svg></span>
+    <div><h1 class="ptitle" style="margin:0">Penjaga Hutan AI</h1></div>
+  </div>
+  <p class="lead" style="margin:0">Asisten edukasi untuk belajar tentang karhutla, lahan gambut, asap, dan cara mencegah kebakaran. Jawabannya dibuat oleh AI dan bisa keliru; bukan pengganti petugas pemadam, tenaga medis, atau informasi resmi pemerintah.</p>
+  <div class="status" id="notice" role="status" hidden></div>
+  <div class="log" id="log" role="log" aria-live="polite" aria-label="Percakapan dengan Penjaga Hutan AI" tabindex="0"></div>
+  <div class="quick" id="quick" aria-label="Pertanyaan cepat"></div>
+  <form id="f" class="composer" autocomplete="off">
+    <label class="sr" for="q">Tulis pertanyaanmu</label>
+    <textarea id="q" rows="1" maxlength="500" placeholder="Tulis pertanyaanmu tentang karhutla..." enterkeyhint="send"></textarea>
+    <button class="btn pri" id="send" type="submit">Kirim</button>
+  </form>
+  <div class="meta"><span id="cnt">0/500</span><button class="btn sm" id="new" type="button">Percakapan baru</button></div>
+  <p class="note" style="margin:0">Percakapan tidak disimpan di server; riwayat hanya tersimpan sementara di perangkatmu dan hilang saat tab ditutup. Teks pertanyaanmu dikirim ke layanan AI untuk diproses; jangan menulis nama lengkap, nomor telepon, atau alamat. Jika ada api atau asap berbahaya di dekatmu, jauhi lokasi dan hubungi petugas, jangan menunggu jawaban AI. <a href="/privasi/">Kebijakan privasi</a></p>
+</div>
+</main>
+<script type="module">
+const $=i=>document.getElementById(i);
+const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a))e.setAttribute(x,v);for(const c of k)e.append(c);return e};
+const GREET='Halo, Penjaga Hutan siap membantu! Kamu bisa bertanya tentang karhutla, lahan gambut, pencegahan kebakaran, atau cara menjaga lingkungan. Yuk, belajar bersama!';
+const QUICK=['Apa itu karhutla?','Mengapa lahan gambut mudah terbakar?','Apa yang harus kulakukan jika melihat titik api?','Mengapa asap karhutla berbahaya?','Bagaimana cara melindungi diri dari asap?','Bagaimana cara mencegah karhutla di lingkungan rumah?','Apa peran masyarakat dalam menjaga hutan?','Bagaimana upaya pencegahan karhutla di Barito Kuala?'];
+const log=$('log'),q=$('q'),send=$('send');
+let hist=[],busy=false,last=null,ctl=null;
+const scroll=()=>{log.scrollTop=log.scrollHeight};
+// Teks aman: hanya DOM + textContent. Mendukung paragraf, daftar "- ", dan **tebal**.
+function inline(parent,t){t.split(/(\*\*[^*]+\*\*)/g).forEach(p=>{if(/^\*\*[^*]+\*\*$/.test(p))parent.append(h('b',{},p.slice(2,-2)));else if(p)parent.append(p)})}
+function rich(text){const out=[];let ul=null;
+  for(const raw of text.split('\n')){const t=raw.trim();if(!t){ul=null;continue}
+    const m=/^[-*•]\s+(.*)$/.exec(t);
+    if(m){if(!ul){ul=h('ul');out.push(ul)}const li=h('li');inline(li,m[1]);ul.append(li);continue}
+    ul=null;const p=h('p');inline(p,t.replace(/^#+\s*/,''));out.push(p)}
+  return out}
+function bubble(kind,text,who){const b=h('div',{class:'msg '+kind});b.append(h('span',{class:'who'},who));
+  if(kind==='me')b.append(h('p',{},text));else b.append(...rich(text));log.append(b);scroll();return b}
+function extras(b,d){
+  if(d.contacts&&d.contacts.length){const w=h('div',{class:'ctc'});w.append(h('b',{},'Kontak bantuan (dari database AnsepZero)'));
+    for(const c of d.contacts){const num=String(c.phone_intl).replace(/\D/g,''),short=num.length<=4;
+      w.append(h('div',{class:'c'},h('b',{},c.name),h('div',{class:'note'},c.verified?'Terverifikasi oleh pengelola.':'Belum dikonfirmasi instansi. '+(c.note||'')),
+        h('a',{class:'btn pri sm',href:(short?'tel:':'tel:+')+num},'Telepon '+(short?num:'+'+num))))}
+    w.append(h('p',{class:'note'},'Jika api membesar atau ada yang terancam, hubungi juga 112 atau petugas terdekat.'));b.append(w)}
+  if(d.materials&&d.materials.length){const w=h('div',{class:'srcs'});
+    w.append('Materi AnsepZero yang disertakan sebagai rujukan untuk jawaban ini (AI bisa saja tidak memakai semuanya):');
+    const ul=h('ul');for(const m of d.materials){const li=h('li',{},h('a',{href:'/edukasi/#'+encodeURIComponent(m.slug)},m.title));
+      if(m.sources.length){const s=h('ul');for(const r of m.sources.slice(0,4))s.append(h('li',{},h('a',{href:r.u,target:'_blank',rel:'noopener noreferrer'},r.t)));li.append(s)}ul.append(li)}
+    w.append(ul);b.append(w)}
+}
+function setBusy(v){busy=v;send.disabled=v;q.disabled=v;$('new').disabled=v;document.querySelectorAll('#quick button').forEach(b=>b.disabled=v);send.textContent=v?'Menunggu...':'Kirim'}
+function typing(){const b=h('div',{class:'msg bot'},h('span',{class:'who'},'Penjaga Hutan AI'),h('span',{class:'dots',role:'status','aria-label':'Penjaga Hutan AI sedang menjawab'},h('i'),h('i'),h('i')));log.append(b);scroll();return b}
+async function ask(text){
+  text=text.trim();if(!text||busy)return;if(text.length>500){bubble('err','Pertanyaan terlalu panjang. Maksimal 500 karakter.','Sistem');return}
+  setBusy(true);last=text;bubble('me',text,'Kamu');q.value='';fit();
+  const t=typing();ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),40000);
+  try{
+    const r=await fetch('/api/chat',{method:'POST',signal:ctl.signal,headers:{'content-type':'application/json'},body:JSON.stringify({messages:[...hist.slice(-6).map(m=>({role:m.role,content:m.content.slice(0,1200)})),{role:'user',content:text}]})});
+    const j=(r.headers.get('content-type')||'').includes('json')?await r.json().catch(()=>null):null;
+    t.remove();
+    if(!r.ok||!j||typeof j.reply!=='string'){
+      const msg=(j&&j.error)||(r.status===404?'Layanan Penjaga Hutan AI belum terpasang di situs ini (API tidak ditemukan).':'Terjadi kesalahan ('+r.status+'). Coba lagi sebentar lagi.');
+      showErr(msg,j&&j.code!=='not_configured');return}
+    hist.push({role:'user',content:text},{role:'assistant',content:j.reply});hist=hist.slice(-12);save();
+    const b=bubble('bot',j.reply,'Penjaga Hutan AI');extras(b,j);scroll();
+  }catch(e){t.remove();showErr(e&&e.name==='AbortError'?'Penjaga Hutan AI terlalu lama menjawab. Coba kirim ulang.':'Tidak bisa menghubungi server. Periksa koneksi internetmu.',true)}
+  finally{clearTimeout(to);setBusy(false);if(matchMedia('(pointer:fine)').matches)q.focus()}
+}
+function showErr(msg,retry){const b=bubble('err',msg,'Sistem');if(retry&&last){const btn=h('button',{class:'btn sm',type:'button',style:'margin-top:8px'},'Coba kirim lagi');btn.onclick=()=>{btn.disabled=true;ask(last)};b.append(btn)}}
+function fit(){q.style.height='auto';q.style.height=Math.min(q.scrollHeight,150)+'px';$('cnt').textContent=q.value.length+'/500'}
+// Riwayat hanya di perangkat ini (sessionStorage): bertahan saat halaman dimuat ulang, hilang saat tab ditutup. Tidak dikirim ke database.
+const SK='az.chat';
+function save(){try{sessionStorage.setItem(SK,JSON.stringify(hist))}catch(e){}}
+function restore(){try{const a=JSON.parse(sessionStorage.getItem(SK)||'[]');
+  if(Array.isArray(a)&&a.length&&a.every(m=>m&&(m.role==='user'||m.role==='assistant')&&typeof m.content==='string')){hist=a.slice(-12);return true}}catch(e){}return false}
+function reset(keep){if(busy)return;if(keep!==true){hist=[];try{sessionStorage.removeItem(SK)}catch(e){}}last=null;log.replaceChildren();bubble('bot',GREET,'Penjaga Hutan AI');
+  if(keep===true)for(const m of hist)bubble(m.role==='user'?'me':'bot',m.content,m.role==='user'?'Kamu':'Penjaga Hutan AI');q.value='';fit()}
+$('f').addEventListener('submit',e=>{e.preventDefault();ask(q.value)});
+q.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();ask(q.value)}});
+q.addEventListener('input',fit);$('new').onclick=()=>reset();
+$('quick').replaceChildren(...QUICK.map(t=>{const b=h('button',{type:'button'},t);b.onclick=()=>ask(t);return b}));
+reset(restore());
+// Status konfigurasi: jujur jika AI belum diaktifkan.
+fetch('/api/chat').then(r=>(r.headers.get('content-type')||'').includes('json')?r.json():null).then(j=>{
+  const n=$('notice');
+  if(!j){n.textContent='Layanan Penjaga Hutan AI belum terpasang di situs ini (API tidak ditemukan). Kamu tetap bisa belajar di halaman Edukasi.';n.hidden=false;setBusy(true);send.textContent='Kirim'}
+  else if(!j.configured){n.textContent='Penjaga Hutan AI belum diaktifkan oleh pengelola situs, jadi belum bisa menjawab. Sementara itu, belajar dulu di halaman Edukasi atau coba Kuis.';n.hidden=false;setBusy(true);send.textContent='Kirim'}
+}).catch(()=>{});
+</script></body></html>

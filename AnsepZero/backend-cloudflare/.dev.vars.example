@@ -1,0 +1,2 @@
+# Salin ke .dev.vars (jangan di-commit). Saat ini tidak ada secret wajib:
+# kata sandi admin disimpan sebagai hash di D1.

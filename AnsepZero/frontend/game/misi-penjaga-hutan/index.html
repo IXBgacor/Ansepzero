@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0f3b2e">
+<title>Misi Penjaga Hutan — v2.1 Alpha</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/v06.css">
+<link rel="stylesheet" href="css/v10.css">
+</head>
+<body>
+<main id="stage">
+  <canvas id="game" width="240" height="160" aria-label="Peta hutan"></canvas>
+
+  <div id="hud" hidden>
+    <span class="hud-title">Misi Penjaga Hutan · v2.1 Alpha</span>
+    <div class="hud-btns">
+      <button id="btn-gear" type="button" data-nosfx aria-label="Pengaturan" aria-expanded="false"></button>
+      <div id="gear-menu">
+        <button id="btn-mute" class="btn-sm" data-l="Suara" type="button" aria-pressed="false" aria-label="Matikan suara">🔊</button>
+        <button class="btn-fs btn-sm" data-l="Layar Penuh" type="button">Layar Penuh</button>
+        <button id="btn-pause" class="btn-sm" data-l="Jeda" type="button" data-nosfx>Jeda</button>
+      </div>
+    </div>
+  </div>
+
+  <button id="btn-missions" class="btn-sm" type="button" data-nosfx hidden aria-label="Buka daftar bab dan misi">
+    <span class="tr-top"><span id="tr-ch"></span><span id="tr-score"></span></span>
+    <span id="tr-name" class="tr-name"></span>
+    <span id="tr-objs"></span>
+    <span class="tr-row"><span class="tr-bar"><i id="tr-fill"></i></span><span id="tr-count"></span></span>
+    <span id="tr-live" class="tr-live" hidden></span>
+  </button>
+  <div id="vmpanel" hidden aria-live="polite"><b id="vm-title"></b><span id="vm-obj"></span><div class="vm-bar"><i id="vm-fill"></i></div><span id="vm-extra"></span></div>
+  <div id="zoombar"><button id="zoom-in" type="button" data-nosfx aria-label="Perbesar tampilan">+</button><button id="zoom-out" type="button" data-nosfx aria-label="Perkecil tampilan">−</button></div>
+  <button id="minimap" type="button" data-nosfx aria-label="Buka peta desa"><canvas id="mm-cv" width="96" height="96"></canvas></button>
+  <div id="popup" hidden role="status" aria-live="polite"></div>
+  <div id="safety" role="alert" hidden>⚠ Zona bahaya! Mundur, jangan dekati asap/api.</div>
+
+  <div id="touch" class="touch-controls" hidden>
+    <div id="joy" role="application" aria-label="Joystick analog"><div class="joy-knob"></div></div>
+  </div>
+
+  <button id="btn-bike" type="button" tabindex="-1" data-nosfx hidden aria-pressed="false" aria-label="Naik atau turun sepeda">SEPEDA</button>
+  <button id="btn-run" type="button" tabindex="-1" data-nosfx hidden aria-label="Tahan untuk berlari">LARI</button>
+  <div id="actions" hidden>
+    <span id="act-hint" aria-live="polite">Dekati NPC atau objek</span>
+    <button id="btn-act" type="button" tabindex="-1" data-nosfx disabled>INTERAKSI</button>
+  </div>
+
+  <div id="pchint" hidden aria-label="Petunjuk kontrol keyboard dan mouse">
+    <span class="k-play"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> Gerak <i>·</i> <kbd>Shift</kbd> Lari <i>·</i> <kbd>E</kbd> Interaksi <i>·</i> <kbd>Esc</kbd> Jeda <i>·</i> Seret mouse: kamera</span>
+    <span class="k-modal"><kbd>Enter</kbd> / <kbd>E</kbd> Lanjut / konfirmasi <i>·</i> <kbd>1</kbd>–<kbd>9</kbd> Pilih jawaban <i>·</i> <kbd>↑</kbd><kbd>↓</kbd> Sorot <i>·</i> <kbd>Esc</kbd> Tutup</span>
+  </div>
+
+  <section id="dialog" hidden role="dialog" aria-modal="true" aria-labelledby="dlg-name">
+    <div id="dlg-box" class="dlg-box" data-tone="info">
+      <div class="dlg-head">
+        <canvas id="dlg-ic" width="16" height="16" aria-hidden="true"></canvas>
+        <h3 id="dlg-name"></h3><span id="dlg-badge" class="dlg-badge" hidden></span>
+        <button id="dlg-x" type="button" aria-label="Tutup dialog">✕</button>
+      </div>
+      <div class="dlg-body">
+        <div id="dlg-text" class="dlg-text" aria-live="polite"></div>
+        <div id="dlg-actions" class="dlg-actions"></div>
+      </div>
+      <div id="dlg-foot" class="dlg-foot" hidden></div>
+    </div>
+  </section>
+
+  <section id="worldmap" hidden role="dialog" aria-modal="true" aria-labelledby="wm-title">
+    <div class="wm-box">
+      <div class="mp-top"><h2 id="wm-title">Peta Desa</h2><div class="wm-zoom"><button id="wm-zin" type="button" data-nosfx aria-label="Perbesar peta">+</button><button id="wm-zout" type="button" data-nosfx aria-label="Perkecil peta">−</button></div><button id="wm-close" type="button" data-nosfx aria-label="Tutup peta">✕</button></div>
+      <div class="wm-stage"><canvas id="wm-cv" width="864" height="288"></canvas></div>
+      <div id="wm-info" aria-live="polite"></div>
+      <div class="wm-legend"><span><i class="lg me"></i>Anda</span><span><i class="lg act"></i>Misi aktif</span><span><i class="lg done"></i>Selesai</span><span><i class="lg fire"></i>Api</span><span><i class="lg place"></i>Fasilitas</span><span><i class="lg veh"></i>Kendaraan</span></div>
+    </div>
+  </section>
+
+  <section id="missions" hidden role="dialog" aria-modal="true" aria-labelledby="mp-title">
+    <div class="mp-box">
+      <div class="mp-top"><h2 id="mp-title">Bab &amp; Misi</h2><button id="mp-close" type="button" data-nosfx aria-label="Tutup daftar bab dan misi">✕</button></div>
+      <div id="mp-list" class="mp-list"></div>
+    </div>
+  </section>
+
+  <section id="evalsec" hidden role="dialog" aria-modal="true" aria-labelledby="ev-title">
+    <div class="mp-box ev-box">
+      <div class="mp-top"><h2 id="ev-title">Evaluasi Akhir</h2><button id="ev-close" type="button" data-nosfx aria-label="Tutup evaluasi">✕</button></div>
+      <div id="ev-body" class="mp-list"></div>
+      <div class="ev-actions"><button id="ev-ok" class="btn-main" type="button" data-nosfx>Tutup</button><button id="ev-reset" class="btn-alt" type="button">Ulangi dari Awal</button></div>
+    </div>
+  </section>
+
+  <section id="audiosec" hidden role="dialog" aria-modal="true" aria-labelledby="au-title">
+    <div class="mp-box au-box">
+      <div class="mp-top"><h2 id="au-title">Pengaturan Audio</h2><button id="au-close" type="button" data-nosfx aria-label="Tutup pengaturan audio">✕</button></div>
+      <div class="mp-list au-list">
+        <button id="au-mute" class="btn-alt" type="button"></button>
+        <div class="au-row"><span class="au-lbl">Musik latar (BGM)</span><button id="au-bgm-on" class="au-tg" type="button" aria-pressed="true">ON</button></div>
+        <div class="au-row"><label for="au-bgm-vol" class="au-lbl">Volume BGM</label><input id="au-bgm-vol" type="range" min="0" max="100" step="5" value="35"><output id="au-bgm-out" for="au-bgm-vol">35%</output></div>
+        <div class="au-row"><span class="au-lbl">Efek suara (SFX)</span><button id="au-sfx-on" class="au-tg" type="button" aria-pressed="true">ON</button></div>
+        <div class="au-row"><label for="au-sfx-vol" class="au-lbl">Volume SFX</label><input id="au-sfx-vol" type="range" min="0" max="100" step="5" value="85"><output id="au-sfx-out" for="au-sfx-vol">85%</output></div>
+        <p id="au-status" class="note" role="status" hidden></p>
+      </div>
+      <div class="ev-actions"><button id="au-test" class="btn-alt" type="button">Tes SFX</button><button id="au-ok" class="btn-main" type="button" data-nosfx>Selesai</button></div>
+    </div>
+  </section>
+
+  <section id="namesec" hidden role="dialog" aria-modal="true" aria-labelledby="name-title">
+    <div class="panel">
+      <h2 id="name-title">Siapa nama Penjaga Hutan?</h2>
+      <label for="name-in" class="note">Nama lengkap atau nama tampilan (dipakai pada sertifikat)</label>
+      <input id="name-in" type="text" maxlength="40" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done" placeholder="Contoh: Dina Pratama">
+      <p id="name-err" class="error" role="alert" hidden></p>
+      <button id="name-ok" class="btn-main" type="button" data-nosfx>Mulai Petualangan</button>
+      <button id="name-cancel" class="btn-alt" type="button" data-nosfx hidden>Batal</button>
+      <p class="note">Nama hanya disimpan di perangkat ini. Tidak ada data pribadi lain yang diminta.</p>
+    </div>
+  </section>
+
+  <section id="endsec" hidden role="dialog" aria-modal="true" aria-labelledby="end-title">
+    <div class="mp-box ev-box">
+      <div class="mp-top"><h2 id="end-title">Tamat</h2><button id="end-x" type="button" data-nosfx aria-label="Tutup">✕</button></div>
+      <div id="end-body" class="mp-list"></div>
+      <div class="ev-actions"><button id="end-cert" class="btn-main" type="button" data-nosfx>Dapatkan Sertifikat</button><button id="end-close" class="btn-alt" type="button" data-nosfx>Tutup</button></div>
+    </div>
+  </section>
+
+  <section id="certsec" hidden role="dialog" aria-modal="true" aria-label="Sertifikat">
+    <div class="cert-ui"><button id="cert-pdf" class="btn-main" type="button" data-nosfx>DOWNLOAD SERTIFIKAT PDF</button>
+        <button id="cert-print" class="btn-alt" type="button" data-nosfx>Cetak (Simpan sebagai PDF)</button><button id="cert-close" class="btn-alt" type="button" data-nosfx>Tutup</button></div>
+    <p class="cert-ui note cert-tip">Di dialog cetak pilih tujuan <b>Simpan sebagai PDF</b>, kertas A4, orientasi lanskap.</p>
+    <div id="cert-box"><article id="cert">
+      <div class="c-frame"><div class="c-in">
+        <p class="c-org">MISI PENJAGA HUTAN · GAME EDUKASI</p>
+        <h1>Sertifikat Penyelesaian Misi Penjaga Hutan</h1>
+        <p class="c-lead">Diberikan kepada</p>
+        <p id="c-name" class="c-name"></p>
+        <p class="c-text">telah menyelesaikan simulasi edukasi <b>Misi Penjaga Hutan</b>: 30 misi pembelajaran tentang mengenali hutan, mewaspadai api, dampak kebakaran, edukasi masyarakat, dan pelaporan yang aman, serta Misi Terakhir tentang keselamatan.</p>
+        <div class="c-stats"><div><span>Penilaian</span><b id="c-stars"></b><i id="c-stars-n"></i></div><div><span>Skor akhir</span><b id="c-score"></b></div><div><span>Tanggal penyelesaian</span><b id="c-date"></b></div></div>
+        <p class="c-no">Nomor sertifikat: <b id="c-no"></b></p>
+        <p class="c-note">Sertifikat digital ini adalah apresiasi penyelesaian game edukasi dan bukan sertifikat resmi dari instansi pemerintah maupun sekolah.</p>
+      </div></div>
+    </article></div>
+  </section>
+
+  <section id="menu">
+    <div class="panel">
+      <h1><span>MISI</span>PENJAGA HUTAN</h1>
+      <p class="sub">v2.1 Alpha — Kendaraan, Zoom, Peta Selatan</p>
+      <button id="btn-start" class="btn-main" type="button" data-nosfx>Mulai Game</button>
+      <button id="btn-restart" class="btn-alt" type="button" data-nosfx hidden>Mulai Ulang</button>
+      <p id="menu-prog" class="note"></p>
+      <p id="menu-name" class="note"></p>
+      <button id="btn-name" class="btn-alt" type="button">Ubah Nama</button>
+      <button id="btn-end" class="btn-alt" type="button" hidden>Lihat Ending &amp; Sertifikat</button>
+      <button id="btn-replay-intro" class="btn-alt" type="button">Putar Ulang Cerita Pembuka</button>
+      <p id="menu-gear" class="note"></p>
+      <button id="btn-chapters" class="btn-alt" type="button">Bab &amp; Misi</button>
+      <button id="btn-eval" class="btn-alt" type="button" hidden>Lihat Evaluasi Akhir</button>
+      <button id="btn-reset" class="btn-alt" type="button">Reset Progres Misi</button>
+      <p class="note">“Mulai Ulang” hanya mengembalikan posisi ke titik awal; progres misi tetap tersimpan.</p>
+      <button id="btn-input" class="btn-alt" type="button" aria-describedby="input-note">Kontrol: Otomatis</button>
+      <p id="input-note" class="note"></p>
+      <button id="btn-audio" class="btn-alt" type="button" data-nosfx>Pengaturan Audio</button>
+      <button id="btn-how" class="btn-alt" type="button">Cara Bermain</button>
+      <div id="howto" hidden>
+        <p><b>PC (keyboard + mouse):</b> panah atau W A S D untuk bergerak (bisa diagonal), <b>E</b> atau <b>Enter</b> untuk interaksi, <b>Esc</b> untuk jeda / menutup dialog. Di dialog: <b>Enter/E</b> = lanjut, angka <b>1–9</b> = pilih jawaban, panah ↑↓ = sorot pilihan; mouse boleh dipakai untuk klik pilihan dan tombol.</p>
+        <p><b>HP Android (sentuh):</b> geser jempol di <b>joystick</b> kiri bawah; makin jauh digeser, makin cepat. Sentuhan kecil di tengah tidak menggerakkan karakter.</p>
+        <p><b>Lari:</b> tahan <b>Shift</b> (PC) atau tombol <b>LARI</b> di sebelah kiri tombol INTERAKSI (HP) sambil bergerak. Arah tetap mengikuti joystick/tombol arah.</p>
+        <p><b>Cerita &amp; dialog sinematik:</b> ketuk kotak dialog, tombol Lanjut, atau Enter/E untuk melanjutkan; tombol kecepatan mengganti Otomatis / Manual / Cepat.</p>
+        <p><b>Melihat sekitar:</b> geser layar dengan satu jari (HP) atau tahan klik kiri mouse lalu seret (PC) untuk melihat area lain. Karakter tidak ikut berjalan; kamera boleh sedikit melewati tepi peta. Lepaskan dan kamera kembali halus ke karakter.</p>
+        <p><b>Tanda emas di tanah:</b> tempat ideal untuk berdiri saat berinteraksi dengan tujuan misi aktif. Berdiri di sana (tanda berubah hijau ✔), lalu tekan INTERAKSI / E.</p>
+        <p><b>Interaksi:</b> dekati NPC/objek bertanda kuning (!), lalu tekan <b>INTERAKSI</b> (kanan bawah; di PC: tombol <b>E</b>/<b>Enter</b>). Panah kuning di tepi layar menunjuk tujuan yang di luar layar.</p>
+        <p><b>Kampanye:</b> 30 misi dalam 6 bab, dikerjakan berurutan. Misi baru dijelaskan otomatis. Ketuk kotak misi di kiri atas atau tombol <b>Bab &amp; Misi</b> untuk melihat daftar, progres, dan skor. Progres tersimpan otomatis di perangkat.</p>
+        <p><b>Keselamatan:</b> jangan pernah mendekati api atau asap. Amati dari cincin hijau, jangan masuk cincin merah, lalu laporkan. Pohon, batu, dan sungai tidak bisa dilewati; gunakan jembatan kayu.</p>
+      </div>
+      <button class="btn-fs btn-alt" type="button">Layar Penuh</button>
+    </div>
+  </section>
+
+  <section id="gate" hidden role="dialog" aria-labelledby="gate-title">
+    <div class="panel">
+      <h2 id="gate-title">Siap bermain?</h2>
+      <p id="gate-msg" class="gate-msg">Untuk pengalaman bermain terbaik, putar perangkat ke mode <b>LANDSCAPE</b> dan aktifkan <b>LAYAR PENUH</b>.</p>
+      <ul class="status"><li id="st-orient"></li><li id="st-fs"></li></ul>
+      <p id="gate-note" class="note"></p>
+      <p id="gate-error" class="error" role="alert" hidden></p>
+      <button id="btn-gate-go" class="btn-main" type="button">Aktifkan Layar Penuh &amp; Mulai</button>
+      <button id="btn-gate-nofs" class="btn-alt" type="button" hidden>Main tanpa layar penuh</button>
+      <button id="btn-gate-back" class="btn-alt" type="button">Kembali</button>
+    </div>
+  </section>
+
+  <section id="rotate" hidden role="alert">
+    <div class="phone" aria-hidden="true"></div>
+    <p>Putar perangkat ke mode <b>LANDSCAPE</b> untuk melanjutkan.</p>
+    <button id="btn-rot-menu" class="btn-alt" type="button">Kembali ke menu</button>
+  </section>
+  <div id="toast" hidden role="status"></div>
+
+  <div id="cine" hidden>
+    <div class="cine-bar cine-top"></div><div class="cine-bar cine-bot"></div>
+    <p id="cine-cap" class="cine-cap" role="status" aria-live="polite"></p>
+    <button id="cine-skip" class="btn-alt" type="button" data-nosfx hidden>Lewati Cutscene ▸▸</button>
+    <div id="cine-title" hidden><span class="t-top">MISI</span><span class="t-main">PENJAGA HUTAN</span><span class="t-sub">Kalimantan Selatan</span></div>
+    <div id="cine-gear" hidden></div>
+    <div id="cine-banner" hidden><b id="banner-main"></b><span id="banner-sub"></span></div>
+    <div id="cine-say" hidden>
+      <div id="say-name" class="say-name"></div>
+      <p id="say-txt" class="say-txt" aria-live="polite"></p>
+      <div class="say-row"><button id="say-spd" type="button" data-nosfx>Otomatis</button><button id="say-next" type="button" data-nosfx>Lanjut ▸</button></div>
+    </div>
+  </div>
+  <div id="cine-fade" hidden></div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/worldstate.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/sprites_v02.js"></script>
+<script src="js/sprites_v04.js"></script>
+<script src="js/sprites_v05.js"></script>
+<script src="js/sprites_v054.js"></script>
+<script src="js/sprites_v06.js"></script>
+<script src="js/sprites_v10.js"></script>
+<script src="js/sprites_v20.js"></script>
+<script src="js/sprites_v30.js"></script>
+<script src="js/world.js"></script>
+<script src="js/pois_v04.js"></script>
+<script src="js/pois_v05.js"></script>
+<script src="js/pois_v06.js"></script>
+<script src="js/village.js"></script>
+<script src="js/school.js"></script>
+<script src="js/region.js"></script>
+<script src="js/vehicles.js"></script>
+<script src="js/bike.js"></script>
+<script src="js/vmission.js"></script>
+<script src="js/evac.js"></script>
+<script src="js/map.js"></script>
+<script src="js/input.js"></script>
+<script src="js/player.js"></script>
+<script src="js/campaign_data.js"></script>
+<script src="js/missions.js"></script>
+<script src="js/evaluation.js"></script>
+<script src="js/dialog.js"></script>
+<script src="js/content.js"></script>
+<script src="js/interact.js"></script>
+<script src="js/game.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/spots.js"></script>
+<script src="js/cutscene.js"></script>
+<script src="js/chapter_cutscenes.js"></script>
+<script src="js/rescue_cutscenes.js"></script>
+<script src="js/story.js"></script>
+<script src="js/final.js"></script>
+<script src="js/certpdf.js"></script>
+<script src="js/gui06.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/audio_ui.js"></script>
+<script src="js/places.js"></script>
+<script src="js/minimap.js"></script>
+<script src="js/hud2.js"></script>
+<script src="js/audit.js"></script>
+<script src="js/main.js"></script>
+<script src="js/az-bridge.js"></script>
+</body>
+</html>

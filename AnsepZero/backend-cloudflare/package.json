@@ -1,0 +1,14 @@
+{
+  "name": "ansepzero-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --no-warnings tests/api.test.mjs",
+    "build-seed": "node scripts/build-seed.mjs",
+    "init-superadmin": "node scripts/init-superadmin.mjs"
+  },
+  "devDependencies": { "wrangler": "^4" }
+}

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><title>Diagnosis pemasangan - AnsepZero</title><meta name="theme-color" content="#0a110e">
+<link rel="stylesheet" href="/assets/css/app.css"><script src="/assets/js/nav.js" defer></script>
+<style>.badge{display:inline-block;min-width:64px;text-align:center;border-radius:999px;padding:2px 10px;font-size:.75rem;font-weight:800;letter-spacing:.04em}.b-lulus{background:rgba(63,185,122,.2);color:var(--grn)}.b-gagal{background:rgba(255,122,107,.2);color:var(--bad)}.b-info{background:rgba(242,184,75,.18);color:var(--warn)}.b-jalan{background:var(--surf2);color:var(--mut)}</style></head><body>
+<main class="wrap narrow">
+<h1 class="ptitle">Diagnosis pemasangan</h1>
+<p class="lead">Memeriksa server, database, API, dan fitur utama langsung dari HP. Membuat satu pemain sementara lalu menghapusnya lagi.</p>
+<div class="panel"><div id="sum" class="note" role="status">Menjalankan pemeriksaan...</div><div class="btns"><button class="btn pri" id="re">Jalankan ulang</button><button class="btn" id="cp">Salin laporan</button></div></div>
+<div class="panel" style="margin-top:12px" id="res" aria-live="polite"></div>
+<p class="note">Laporan yang disalin dapat dikirim ke pengembang untuk diagnosis. Halaman ini hanya untuk pengelola situs.</p>
+</main>
+<script type="module">
+const $=i=>document.getElementById(i);
+const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a))e.setAttribute(x,v);for(const c of k)e.append(c);return e};
+async function j(path,{method='GET',body,token}={}){
+  let r;try{r=await fetch('/api/'+path,{method,headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{})},body:body?JSON.stringify(body):undefined})}catch(e){return {ok:false,status:0,error:'tidak bisa menghubungi server'}}
+  const isJson=(r.headers.get('content-type')||'').includes('json');const data=isJson?await r.json().catch(()=>null):null;
+  return {ok:r.ok&&isJson&&data!==null,status:r.status,data,error:(data&&data.error)||(!isJson?`respons bukan JSON (HTTP ${r.status}); kemungkinan Functions belum terpasang`:`HTTP ${r.status}`)};
+}
+let out=[];
+function render(){
+  $('res').replaceChildren(...out.map(o=>h('div',{class:'it'},h('div',{class:'m'},h('b',{},o.name),h('div',{class:'note',style:'margin:2px 0 0'},o.detail||'')),h('span',{class:'badge b-'+o.status},o.status.toUpperCase()))));
+  const c=s=>out.filter(o=>o.status===s).length;
+  $('sum').textContent=`${c('lulus')} lulus, ${c('gagal')} gagal, ${c('info')} info`+(out.some(o=>o.status==='jalan')?' (berjalan...)':'');
+}
+async function step(name,fn){const o={name,status:'jalan',detail:''};out.push(o);render();
+  try{const [s,d]=await fn();o.status=s;o.detail=d}catch(e){o.status='gagal';o.detail=String(e&&e.message||e)}render();return o}
+async function run(){
+  out=[];render();let token=null;
+  const hl=await j('health');
+  await step('Server API aktif',async()=>hl.ok?['lulus','/api/health menjawab, versi '+(hl.data.version||'?')]:['gagal',hl.error+'. Situs belum dipasang dengan Pages Functions (lihat docs/TROUBLESHOOT.md).']);
+  await step('Database D1 terhubung',async()=>hl.ok&&hl.data.db?['lulus','binding DB ada']:['gagal','binding DB belum ada atau server tidak aktif']);
+  await step('Skema database lengkap',async()=>hl.ok&&hl.data.schema?['lulus','semua tabel dan trigger ada']:['gagal',hl.ok&&hl.data.missing&&hl.data.missing.length?'belum ada: '+hl.data.missing.join(', '):'migrasi belum diterapkan']);
+  await step('Materi edukasi terbit',async()=>{const r=await j('content');if(!r.ok)return['gagal',r.error];const n=r.data.rows.length;return n>=9?['lulus',n+' materi, '+r.data.rows.reduce((a,m)=>a+m.sources.length,0)+' tautan sumber']:['gagal',n+' materi (harus 9). Jalankan migrasi 0006.']});
+  await step('Bank soal',async()=>hl.ok&&hl.data.questions!=null?(hl.data.questions>=116?['lulus',hl.data.questions+' soal aktif (100 soal level + 16 evaluasi)']:['gagal',hl.data.questions+' soal. Jalankan migrasi 0004, 0007, dan 0011.']):['gagal','tidak terbaca']);
+  await step('Kontak bantuan',async()=>{const r=await j('contacts');if(!r.ok)return['gagal',r.error];const nums=r.data.rows.map(c=>c.name+' ('+c.phone_intl+')'+(c.verified?' terverifikasi':' belum diverifikasi'));const ver=r.data.rows.filter(c=>c.verified).length;return !r.data.rows.length?['gagal','belum ada kontak aktif']:[ver?'lulus':'info',(ver?'':'belum ada kontak terverifikasi: konfirmasi ke instansi sebelum publikasi. ')+nums.join('; ')]});
+  await step('Data ISPA dan sumbernya',async()=>{const r=await j('ispa');if(!r.ok)return['gagal',r.error];const sum=r.data.rows.reduce((a,x)=>a+x.cases,0),part=r.data.rows.filter(x=>x.is_partial).length;const okSrc=/Dinas Kesehatan Marabahan/.test(r.data.source||'');return r.data.rows.length===10&&sum===22224&&part===1&&okSrc?['lulus','10 periode, total '+sum.toLocaleString('id-ID')+', Oktober parsial, sumber: Dinas Kesehatan Marabahan']:['gagal',`periode ${r.data.rows.length}, total ${sum}, sumber "${r.data.source||'kosong'}". Jalankan migrasi 0002 dan 0008.`]});
+  await step('Buat pemain uji',async()=>{const r=await j('player',{method:'POST',body:{display_name:'Uji'+Math.floor(Math.random()*9000+1000)}});if(!r.ok)return['gagal',r.error];token=r.data.recovery_code;return['lulus','pemain sementara dibuat']});
+  if(token){
+    await step('Kuis: mulai, jawab, selesai',async()=>{const s=await j('quiz/start',{method:'POST',body:{kind:'level',level:1},token});if(!s.ok)return['gagal',s.error];
+      if(/correct|explanation/.test(JSON.stringify(s.data)))return['gagal','kunci jawaban bocor ke browser!'];
+      const q=s.data.questions[0],a=await j('quiz/answer',{method:'POST',body:{attempt_id:s.data.attempt_id,question_id:q.id,chosen_index:q.options[0].i},token});if(!a.ok)return['gagal',a.error];
+      const f=await j('quiz/finish',{method:'POST',body:{attempt_id:s.data.attempt_id},token});if(!f.ok)return['gagal',f.error];
+      return['lulus',`${s.data.questions.length} soal diterima tanpa kunci; jawaban dinilai server; selesai ${f.data.correct}/${f.data.total}${f.data.flagged?' (ditandai: terlalu cepat, normal untuk uji)':''}`]});
+    await step('Game: sesi dan progres',async()=>{const s=await j('game/start',{method:'POST',token});if(!s.ok)return['gagal',s.error];const p=await j('game/progress',{token});return p.ok?['lulus',`${p.data.total_missions} misi terdaftar di server`]:['gagal',p.error]});
+    await step('Hapus pemain uji',async()=>{const d=await j('player/me',{method:'DELETE',token});if(!d.ok)return['gagal',d.error];const m=await j('player/me',{token});return m.status===401?['lulus','data pemain uji terhapus']:['gagal','pemain masih ada setelah dihapus']});
+  }
+  await step('Papan skor',async()=>{const r=await j('leaderboard');return r.ok?['lulus',r.data.rows.length+' baris (kosong = belum ada pemain dengan skor sah)']:['gagal',r.error]});
+  await step('Analitik',async()=>{const r=await j('analytics');return r.ok?['lulus','pemain unik '+r.data.unique_players+', peserta evaluasi '+r.data.assessed]:['gagal',r.error]});
+  await step('Admin siap dibuat',async()=>hl.ok?(hl.data.admin_setup_token?['lulus','secret ADMIN_SETUP_TOKEN terpasang; buka /admin/']:['info','secret ADMIN_SETUP_TOKEN belum diatur; admin belum bisa dibuat']):['gagal','server tidak aktif']);
+  await step('Penjaga Hutan AI',async()=>{if(!hl.ok)return['gagal','server tidak aktif'];const c=await j('chat');if(!c.ok)return['gagal',c.error];return c.data.configured?['lulus','penyedia model terpasang ('+(hl.data.ai||'?')+'). Uji nyata: buka /penjaga-hutan/ dan kirim satu pertanyaan']:['info','belum diaktifkan: pasang binding Workers AI bernama AI atau secret AI_API_KEY (lihat DEPLOYMENT.md)']});
+  await step('Foto laporan (R2)',async()=>hl.ok?(hl.data.photos?['lulus','binding PHOTOS ada']:['info','binding PHOTOS belum ada; laporan tetap bisa dikirim tanpa foto']):['gagal','server tidak aktif']);
+  await step('Aset game dapat dimuat',async()=>{try{const r=await fetch('/game/js/main.js',{method:'HEAD'});return r.ok?['lulus','/game/js/main.js ditemukan']:['gagal','HTTP '+r.status+'; folder game belum ikut ter-deploy']}catch(e){return['gagal','tidak bisa memuat']}});
+  await step('Penyimpanan browser',async()=>{try{localStorage.setItem('az.t','1');localStorage.removeItem('az.t');return['lulus','localStorage berfungsi']}catch(e){return['gagal','localStorage diblokir (mode privat?)']}});
+  await step('GPS dan sentuhan di perangkat ini',async()=>['info',('geolocation'in navigator?'GPS didukung browser (izin diminta saat tombol GPS ditekan)':'GPS tidak didukung')+'; layar '+innerWidth+'x'+innerHeight+(matchMedia('(pointer:coarse)').matches?', layar sentuh':', mouse')]);
+}
+$('re').onclick=run;
+$('cp').onclick=async()=>{const t=out.map(o=>`[${o.status.toUpperCase()}] ${o.name}: ${o.detail}`).join('\n');const txt=`Laporan uji AnsepZero ${location.origin} ${new Date().toISOString()}\n${t}`;
+  try{await navigator.clipboard.writeText(txt);$('cp').textContent='Tersalin'}catch(e){const ta=h('textarea',{style:'width:100%;min-height:160px'});ta.value=txt;$('res').after(ta);ta.select()}};
+run();
+</script></body></html>
