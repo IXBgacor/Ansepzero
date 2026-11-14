@@ -23,7 +23,7 @@ try{
   if(!rows.length)list.append(h('div',{class:'empty'},'Materi belum dipublikasikan.'));
   const seen=new Map();
   rows.forEach((m,i)=>{
-    toc.append(h('a',{href:'#'+m.slug},`${i+1}. ${m.title}`));
+    toc.append(h('a',{href:'#'+m.slug},m.title));
     list.append(h('article',{class:'panel article',id:m.slug,style:'margin-bottom:12px'},h('h2',{},m.title),...body(m.body_md)));
     for(const s of m.sources)if(!seen.has(s.u)){seen.set(s.u,1);refs.append(h('li',{},h('a',{href:s.u,target:'_blank',rel:'noopener noreferrer'},s.t)))}
   });
