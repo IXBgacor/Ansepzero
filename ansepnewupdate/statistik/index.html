@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Analitik pemahaman - AnsepZero</title><meta name="theme-color" content="#0d1411">
+<link rel="stylesheet" href="/assets/css/app.css"><script src="/assets/js/nav.js" defer></script>
+</head><body>
+<main class="wrap"><h1 class="ptitle">Analitik pemahaman</h1><div id="m"><p class="note">Memuat...</p></div></main>
+<script type="module">
+const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a))e.setAttribute(x,v);for(const c of k)e.append(c);return e};
+const nf=n=>Number(n).toLocaleString('id-ID'),P=v=>v==null?'Belum ada data':String(v).replace('.',',')+'%';
+const bar=(label,v,sub)=>h('div',{class:'li'},h('div',{class:'t'},h('span',{},label),h('b',{},P(v))),h('div',{class:'bar',role:'img','aria-label':label+' '+P(v)},h('i',{style:'width:'+(v||0)+'%'})),sub?h('div',{class:'note',style:'margin:2px 0 0'},sub):'');
+function spark(vals,title){const W=600,H=90,mx=Math.max(1,...vals),ns='http://www.w3.org/2000/svg',s=document.createElementNS(ns,'svg');s.setAttribute('viewBox',`0 0 ${W} ${H}`);s.setAttribute('class','chart');s.setAttribute('role','img');s.setAttribute('aria-label',title);
+  const pts=vals.map((v,i)=>`${i*(W/(vals.length-1))},${H-6-(v/mx)*(H-14)}`).join(' ');const pl=document.createElementNS(ns,'polyline');pl.setAttribute('points',pts);pl.setAttribute('fill','none');pl.setAttribute('stroke','#3cc8d8');pl.setAttribute('stroke-width','2');s.append(pl);return s}
+const sec=(t,...k)=>h('section',{},h('h2',{},t),h('div',{class:'panel'},...k));
+try{
+  const r=await fetch('/api/analytics');if(!r.ok)throw 0;const d=await r.json(),m=document.getElementById('m');
+  const c=d.comparison,empty=!d.assessed&&!d.unique_players;
+  m.replaceChildren(
+    h('p',{class:'note'},d.note),
+    h('div',{class:'grid'},...[['Pemain unik',nf(d.unique_players),'ID pemain berbeda'],['Peserta evaluasi',nf(d.assessed),'selesai minimal satu evaluasi'],['Memenuhi kriteria',P(d.met.pct),`${nf(d.met.count)} dari ${nf(d.met.den)} peserta evaluasi (ambang ${d.threshold_pct}%)`],['Menunjukkan peningkatan',P(c.improved_pct),`${nf(c.improved)} dari ${nf(c.den)} peserta dengan evaluasi awal dan akhir`]].map(([l,n,s])=>h('div',{class:'stat'},h('div',{class:'n'},n),h('div',{class:'l'},l),h('div',{class:'d'},s)))),
+    sec('Evaluasi awal dan akhir',h('p',{},c.den?`Rata-rata nilai awal ${P(c.avg_pre)}, nilai akhir ${P(c.avg_post)}, perubahan rata-rata ${String(c.avg_change_points).replace('.',',')} poin persentase (n = ${nf(c.den)}).`:'Belum ada peserta dengan evaluasi awal dan akhir.')),
+    sec('Penyelesaian tiap level',...d.levels.map(l=>bar('Level '+l.level,l.pass_pct_of_attempted,`${nf(l.passed)} lulus dari ${nf(l.attempted)} pemain yang mencoba`)),h('p',{class:'note'},'Rata-rata skor kuis: '+P(d.avg_quiz_pct))),
+    sec('Pemahaman per kategori materi',...(d.categories.length?d.categories.map(x=>bar(x.category,x.pct,`${nf(x.correct)} benar dari ${nf(x.total)} jawaban`)):[h('p',{},'Belum ada jawaban.')])),
+    sec('Soal yang paling sering salah',...(d.most_missed.length?d.most_missed.map(x=>bar(x.question,x.wrong_pct,`${nf(x.wrong)} salah dari ${nf(x.answered)} jawaban (${x.category})`)):[h('p',{},'Belum cukup data (minimal 3 jawaban per soal).')])),
+    sec('Misi edukasi',h('p',{},`${nf(d.educational_missions.completed)} misi selesai oleh ${nf(d.educational_missions.players)} pemain.`)),
+    sec('Aktivitas 30 hari terakhir',h('div',{class:'note'},'Kuis selesai'),spark(d.trend.quiz_attempts,'Kuis selesai per hari'),h('div',{class:'note'},'Pemain baru'),spark(d.trend.new_players,'Pemain baru per hari'),h('div',{class:'note'},'Misi selesai'),spark(d.trend.missions,'Misi selesai per hari'),h('p',{class:'note'},d.trend.days[0]+' sampai '+d.trend.days[29])));
+  if(empty)m.prepend(h('div',{class:'empty'},'Belum ada data pemain. Semua angka di halaman ini 0 atau belum tersedia sampai ada yang bermain.'));
+}catch(e){document.getElementById('m').replaceChildren(h('div',{class:'empty'},'Analitik belum dapat dimuat.'))}
+</script></body></html>

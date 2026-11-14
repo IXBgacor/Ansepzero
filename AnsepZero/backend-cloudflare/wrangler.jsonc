@@ -1,0 +1,18 @@
+{
+  "name": "ansepzero-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-06-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ansepzero-db",
+      // Ganti setelah membuat D1 (docs/PANDUAN-CLOUDFLARE.md langkah 3)
+      "database_id": "ISI_DATABASE_ID_DI_SINI",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    // Origin frontend yang diizinkan, pisahkan koma, tanpa garis miring akhir
+    "ALLOWED_ORIGINS": "http://localhost:8080"
+  }
+}

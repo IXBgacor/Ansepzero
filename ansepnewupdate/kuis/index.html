@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kuis - AnsepZero</title><meta name="theme-color" content="#0a110e">
+<link rel="stylesheet" href="/assets/css/app.css"><script src="/assets/js/nav.js" defer></script></head><body>
+<main class="wrap narrow">
+<h1 class="ptitle">Kuis karhutla</h1>
+<p class="note" id="msg" role="alert"></p>
+<section id="s-menu" hidden><div class="panel"><h2 id="who"></h2><p class="note" id="sc"></p><div id="menu"></div>
+  <div class="btns"><button class="btn sm" id="show-code">Tampilkan kode pemulihan</button><button class="btn sm" id="out">Keluar</button><button class="btn sm" id="del">Hapus data saya</button></div>
+  <p class="note" id="code-note"></p></div></section>
+<section id="s-q" hidden><div class="panel"><div class="note" id="qn"></div><div class="bar"><i id="pb" style="width:0"></i></div>
+  <h2 id="qt"></h2><div id="opts"></div><div id="fb" class="warnbox" hidden></div>
+  <div class="btns"><button class="btn pri" id="next" hidden>Lanjut</button></div></div></section>
+<section id="s-res" hidden><div class="panel"><h2 id="rt"></h2><p id="rb"></p><div id="rc"></div><div class="btns"><button class="btn pri" id="back">Kembali ke menu</button></div></div></section>
+</main>
+<script type="module">
+import {api,getCode,clearCode} from '/assets/js/az.js';
+const $=s=>document.getElementById(s);
+const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a))e.setAttribute(x,v);for(const c of k)e.append(c);return e};
+const show=n=>{for(const s of ['menu','q','res'])$('s-'+s).hidden=s!==n};
+const say=t=>{$('msg').textContent=t||''};
+if(!getCode()) location.replace('/masuk/?next=kuis');
+async function menu(){
+  say();const me=await api('player/me');$('who').textContent='Halo, '+me.display_name;
+  const p=await api('quiz/progress');
+  $('sc').textContent=`Skor kuis ${p.score.quiz_points}. Lulus jika benar minimal ${p.threshold_pct}% (ambang demonstrasi, bukan standar ilmiah).`;
+  const n=(k,l)=>(p.available.find(a=>a.kind===k&&(l==null||a.level===l))||{n:0}).n;
+  const items=[],pre=p.assessments.find(a=>a.kind==='pre'),post=p.assessments.find(a=>a.kind==='post');
+  items.push(['pre',null,'Evaluasi awal',pre?`Selesai, nilai ${Math.round(pre.best)}%`:'Ukur pemahamanmu sebelum belajar',!!pre||!n('pre'),n('pre')?'':'Soal belum tersedia']);
+  for(let l=1;l<=5;l++){const b=p.levels.find(x=>x.level===l);items.push(['level',l,'Level '+l,b?`Terbaik ${Math.round(b.best_pct)}%`:(n('level',l)?`${n('level',l)} soal`:'Soal belum tersedia'),!n('level',l)]);}
+  items.push(['post',null,'Evaluasi akhir',post?`Terbaik ${Math.round(post.best)}%`:'Ukur pemahamanmu setelah belajar',!n('post')]);
+  $('menu').replaceChildren(...items.map(([k,l,t,d,dis])=>{const b=h('button',{class:'opt'},h('b',{},t),h('div',{class:'note'},d));b.disabled=!!dis;b.onclick=()=>start(k,l);return b}));
+  show('menu');
+}
+let at,qs,qi;
+async function start(kind,level){try{say();const d=await api('quiz/start','POST',{kind,level});at=d.attempt_id;qs=d.questions;qi=0;ask()}catch(e){say(e.message)}}
+function ask(){
+  const q=qs[qi];show('q');$('qn').textContent=`Soal ${qi+1} dari ${qs.length}`;$('pb').style.width=(qi/qs.length*100)+'%';
+  $('qt').textContent=q.question;$('fb').hidden=true;$('next').hidden=true;
+  $('opts').replaceChildren(...q.options.map(o=>{const b=h('button',{class:'opt'},o.t);b.onclick=()=>answer(q,o.i,b);return b}));
+  scrollTo({top:0});
+}
+async function answer(q,i,btn){
+  const bs=[...$('opts').children];bs.forEach(b=>b.disabled=true);
+  try{const r=await api('quiz/answer','POST',{attempt_id:at,question_id:q.id,chosen_index:i});
+    btn.classList.add(r.is_correct?'ok':'bad');
+    if(!r.is_correct){const c=q.options.findIndex(o=>o.i===r.correct_index);bs[c].classList.add('ok')}
+    $('fb').textContent=(r.is_correct?'Benar. ':'Belum tepat. Pahami dulu: ')+r.explanation;$('fb').hidden=false;
+    $('next').textContent=qi+1<qs.length?'Lanjut':'Lihat hasil';$('next').hidden=false;
+  }catch(e){
+    // Galat jaringan/server: jangan biarkan pemain macet dengan tombol mati.
+    $('fb').textContent=e.message;$('fb').hidden=false;
+    if(e.status===409){$('next').textContent=qi+1<qs.length?'Lanjut':'Lihat hasil';$('next').hidden=false;} // sudah tercatat di server: lanjut saja
+    else bs.forEach(b=>b.disabled=false); // belum tercatat: boleh pilih lagi
+  }
+}
+$('next').onclick=async()=>{ if(++qi<qs.length)return ask();
+  try{const r=await api('quiz/finish','POST',{attempt_id:at});
+    $('rt').textContent=r.passed?'Memenuhi kriteria':'Perlu belajar lagi';
+    $('rb').textContent=`Benar ${r.correct} dari ${r.total} (${String(r.pct).replace('.',',')}%). `+(r.points?`Poin ${r.points}. `:'')+(r.flag_note||'');
+    $('rc').replaceChildren(...r.by_category.map(c=>h('div',{class:'note'},`${c.category}: ${c.correct}/${c.total}`)));show('res');
+  }catch(e){say(e.message)}};
+$('back').onclick=()=>menu().catch(e=>say(e.message));
+$('show-code').onclick=()=>{$('code-note').textContent='Kode pemulihan: '+getCode()};
+$('out').onclick=()=>{clearCode();location.replace('/masuk/?next=kuis')};
+$('del').onclick=async()=>{if(!confirm('Hapus semua data pemain ini (skor, jawaban, progres)? Tidak bisa dibatalkan.'))return;try{await api('player/me','DELETE');clearCode();location.replace('/masuk/?next=kuis')}catch(e){say(e.message)}};
+try{if(getCode())await menu()}catch(e){if(e.status===401){clearCode();location.replace('/masuk/?next=kuis')}else say(e.message)}
+</script></body></html>

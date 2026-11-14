@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Peta dan wilayah - AnsepZero</title><meta name="theme-color" content="#0d1411">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="/assets/css/app.css"><script src="/assets/js/nav.js" defer></script></head><body>
+<main class="wrap"><h1 class="ptitle">Peta dan wilayah</h1><section>
+<p>Fokus wilayah: Kalimantan Selatan, Kabupaten Barito Kuala, dan Marabahan.</p>
+<div class="warnbox"><b>Data wilayah rawan dan hotspot langsung belum tersedia di AnsepZero.</b> Peta ini hanya peta dasar. Sumber resmi belum terhubung, dan koordinat hotspot tidak ditebak. Gunakan sumber resmi di bawah untuk data terkini.</div>
+<div class="btns"><a class="btn" href="https://sipongi.menlhk.go.id/" target="_blank" rel="noopener">SiPongi (pemantauan hotspot KLHK)</a><a class="btn" href="https://data.go.id/instantion/kabupaten-barito-kuala" target="_blank" rel="noopener">Data Kabupaten Barito Kuala (data.go.id)</a></div>
+<div id="map" role="application" aria-label="Peta dasar Kalimantan Selatan" style="margin-top:14px"></div>
+<div class="btns"><button class="btn" id="me">Tampilkan lokasi saya</button></div><p class="note" id="mn">Lokasi hanya diminta saat tombol ditekan dan tidak dikirim ke server.</p>
+<p class="note">Peta: OpenStreetMap contributors. Tampilan awal hanyalah pusat pandang, bukan penanda lokasi atau status kebakaran.</p>
+</section></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const mapEl=document.getElementById('map');
+if(!window.L){mapEl.innerHTML='<div class="empty">Peta tidak dapat dimuat (jaringan lambat atau diblokir). Gunakan tautan sumber resmi di atas.</div>'}
+else{const map=L.map('map').setView([-3.1,114.7],9);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:17,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+  let mk;document.getElementById('me').onclick=()=>{if(!navigator.geolocation){document.getElementById('mn').textContent='GPS tidak tersedia.';return}
+    navigator.geolocation.getCurrentPosition(p=>{const ll=[p.coords.latitude,p.coords.longitude];mk&&mk.remove();mk=L.marker(ll).addTo(map).bindPopup('Lokasi kamu').openPopup();map.setView(ll,13)},()=>{document.getElementById('mn').textContent='Izin lokasi ditolak atau lokasi tidak didapat.'},{enableHighAccuracy:true,timeout:15000})}}
+</script></body></html>

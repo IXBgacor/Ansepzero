@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lapor kejadian - AnsepZero</title><meta name="theme-color" content="#0d1411">
+<link rel="stylesheet" href="/assets/css/app.css"><script src="/assets/js/nav.js" defer></script>
+</head><body>
+<main class="wrap narrow"><h1 class="ptitle">Lapor kejadian</h1><section>
+<div class="warnbox"><b>Laporan lewat situs ini bukan pengganti panggilan darurat.</b> Laporan belum otomatis diteruskan ke petugas. Jika ada api, hubungi pemadam sekarang.<div id="calls" class="btns"></div></div>
+<form id="f" class="panel" style="margin-top:14px" novalidate>
+  <label for="d">Apa yang terjadi?</label><textarea id="d" maxlength="1000" placeholder="Contoh: ada asap tebal dan api kecil di lahan dekat jalan"></textarea>
+  <label>Lokasi</label>
+  <div class="btns" style="margin:0"><button type="button" class="btn" id="gps">Gunakan lokasi saya (GPS)</button><button type="button" class="btn" id="regps" hidden>Ambil ulang</button></div>
+  <p class="note" id="gpsnote">Lokasi hanya diminta saat kamu menekan tombol di atas.</p>
+  <label for="lt">Nama desa atau patokan terdekat</label><input class="t" id="lt" maxlength="200" autocomplete="off">
+  <label for="ph">Foto (opsional)</label><input type="file" id="ph" accept="image/*">
+  <p class="note">Foto dikecilkan di perangkatmu sebelum dikirim. Jangan memotret wajah orang.</p>
+  <input class="hp" id="web" tabindex="-1" autocomplete="off" aria-hidden="true">
+  <div class="btns"><button class="btn pri" id="go" type="submit">Kirim laporan</button></div>
+  <p class="note" id="msg" role="status"></p>
+</form>
+<div class="panel" style="margin-top:14px"><h3>Cek status laporan</h3><label for="cd">Kode laporan</label><input class="t" id="cd" placeholder="LP-XXXXXXXXXX"><div class="btns"><button class="btn" id="chk">Cek</button></div><p class="note" id="st"></p></div>
+</section></main>
+<script type="module">
+const $=i=>document.getElementById(i);let pos=null;
+fetch('/api/contacts').then(r=>r.json()).then(({rows})=>{for(const c of rows){const n=String(c.phone_intl).replace(/\D/g,''),short=n.length<=4;const a=document.createElement('a');a.className='btn pri';a.href=(short?'tel:':'tel:+')+n;a.textContent='Telepon '+c.name;$('calls').append(a)}}).catch(()=>{});
+function getPos(){$('gpsnote').textContent='Mengambil lokasi...';
+  if(!navigator.geolocation){$('gpsnote').textContent='GPS tidak tersedia di perangkat ini. Tulis nama desa atau patokan.';return}
+  navigator.geolocation.getCurrentPosition(p=>{pos={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy};$('gpsnote').textContent=`Lokasi terkunci: ${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)} (akurasi sekitar ${Math.round(pos.acc)} m).`;$('gps').hidden=true;$('regps').hidden=false},
+    e=>{$('gpsnote').textContent=e.code===1?'Izin lokasi ditolak. Tulis nama desa atau patokan terdekat.':'Lokasi belum didapat. Coba lagi atau tulis nama desa.'},{enableHighAccuracy:true,timeout:15000,maximumAge:0})}
+$('gps').onclick=getPos;$('regps').onclick=getPos;
+async function shrink(file){if(!file||!file.type.startsWith('image/'))return null;const bmp=await createImageBitmap(file),s=Math.min(1,1280/Math.max(bmp.width,bmp.height)),c=document.createElement('canvas');c.width=Math.round(bmp.width*s);c.height=Math.round(bmp.height*s);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);return new Promise(r=>c.toBlob(r,'image/jpeg',.8))}
+$('f').onsubmit=async e=>{e.preventDefault();const m=$('msg');m.textContent='Mengirim...';$('go').disabled=true;
+  try{const fd=new FormData();fd.set('description',$('d').value);fd.set('location_text',$('lt').value);fd.set('website',$('web').value);if(pos){fd.set('lat',pos.lat);fd.set('lng',pos.lng)}
+    const b=await shrink($('ph').files[0]).catch(()=>null);if(b)fd.set('photo',b,'foto.jpg');
+    const r=await fetch('/api/reports',{method:'POST',body:fd}),j=await r.json().catch(()=>null);if(!r.ok||!j)throw new Error((j&&j.error)||'Laporan gagal dikirim ('+r.status+'). Server atau database belum terpasang; hubungi pemadam langsung untuk keadaan darurat.');
+    m.textContent=`Laporan tercatat. Kode: ${j.id}. Simpan kode ini untuk cek status. ${j.note}`;$('f').reset();pos=null}
+  catch(x){m.textContent=x.message}$('go').disabled=false};
+$('chk').onclick=async()=>{try{const r=await fetch('/api/reports/'+encodeURIComponent($('cd').value.trim().toUpperCase())),j=await r.json().catch(()=>({}));$('st').textContent=r.ok?`Status: ${j.status}`:(j.error||'Gagal memeriksa')}catch(e){$('st').textContent='Gagal memeriksa'}};
+</script></body></html>

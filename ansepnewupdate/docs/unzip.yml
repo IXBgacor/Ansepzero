@@ -1,0 +1,20 @@
+# Salin ke repo sebagai .github/workflows/unzip.yml (lewat GitHub: Add file > Create new file, ketik nama berkas persis seperti itu).
+# Lalu unggah ansepzero.zip ke akar repo, buka tab Actions > "Ekstrak ZIP" > Run workflow.
+name: Ekstrak ZIP
+on: { workflow_dispatch: {} }
+permissions: { contents: write }
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          # hapus rute API versi lama (jika ada) agar tidak ada berkas ganda
+          rm -rf functions/api/player functions/api/quiz functions/api/game functions/api/reports functions/api/admin functions/api/leaderboard.js functions/api/analytics.js
+          unzip -o ansepzero.zip -d .
+          rm ansepzero.zip
+          git config user.name "unzip-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add -A
+          git commit -m "Ekstrak proyek AnsepZero"
+          git push

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pusat edukasi - AnsepZero</title><meta name="theme-color" content="#0a110e">
+<link rel="stylesheet" href="/assets/css/app.css"><script src="/assets/js/nav.js" defer></script></head><body>
+<main class="wrap">
+<h1 class="ptitle">Pusat edukasi</h1>
+<p class="lead">Materi dirangkum dari sumber yang tercantum di daftar pustaka. Bukan pengganti arahan resmi BPBD, Damkar, atau tenaga kesehatan.</p>
+<div class="toc" id="toc" aria-label="Daftar materi"></div>
+<div id="list" style="margin-top:14px"></div>
+<h2 style="margin-top:28px">Daftar pustaka</h2><ol class="refs" id="refs"></ol>
+<div class="btns"><a class="btn pri" href="/kuis/">Uji pemahamanmu di kuis</a></div>
+</main>
+<script type="module">
+const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a))e.setAttribute(x,v);for(const c of k)e.append(c);return e};
+const list=document.getElementById('list'),refs=document.getElementById('refs'),toc=document.getElementById('toc');
+function body(md){const out=[];let ul=null;
+  for(const line of md.split('\n')){const t=line.trim();if(!t)continue;
+    if(t.startsWith('- ')){if(!ul){ul=h('ul');out.push(ul)}ul.append(h('li',{},t.slice(2)));continue}
+    ul=null;if(t.startsWith('## '))out.push(h('h3',{},t.slice(3)));else out.push(h('p',{},t))}
+  return out}
+try{
+  const r=await fetch('/api/content');if(!r.ok||!(r.headers.get('content-type')||'').includes('json'))throw 0;const{rows}=await r.json();
+  if(!rows.length)list.append(h('div',{class:'empty'},'Materi belum dipublikasikan.'));
+  const seen=new Map();
+  rows.forEach((m,i)=>{
+    toc.append(h('a',{href:'#'+m.slug},`${i+1}. ${m.title}`));
+    list.append(h('article',{class:'panel article',id:m.slug,style:'margin-bottom:12px'},h('h2',{},m.title),...body(m.body_md)));
+    for(const s of m.sources)if(!seen.has(s.u)){seen.set(s.u,1);refs.append(h('li',{},h('a',{href:s.u,target:'_blank',rel:'noopener noreferrer'},s.t)))}
+  });
+}catch(e){list.append(h('div',{class:'empty'},'Materi belum dapat dimuat. Pastikan server dan database sudah terpasang (lihat DEPLOYMENT.md).'))}
+</script></body></html>
