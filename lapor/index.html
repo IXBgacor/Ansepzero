@@ -10,17 +10,19 @@
 <script src="/assets/js/nav.js" defer></script>
 </head>
 <body>
+
 <main class="wrap narrow">
 <h1 class="ptitle">Lapor kejadian</h1>
 
 <section>
 <div class="warnbox">
 <b>Laporan darurat kebakaran hutan dan lahan.</b>
-Laporan akan dicatat di AnsepZero dan diteruskan melalui WhatsApp setelah kamu menekan tombol kirim.
+Laporan akan dicatat di AnsepZero dan pesan diteruskan melalui WhatsApp setelah kamu menekan tombol kirim.
 <div id="calls" class="btns"></div>
 </div>
 
 <form id="f" class="panel" style="margin-top:14px" novalidate>
+
 <label for="d">Apa yang terjadi?</label>
 <textarea id="d" maxlength="1000" required placeholder="Contoh: ada asap tebal dan api kecil di lahan dekat jalan"></textarea>
 
@@ -29,6 +31,7 @@ Laporan akan dicatat di AnsepZero dan diteruskan melalui WhatsApp setelah kamu m
 <button type="button" class="btn" id="gps">Gunakan lokasi saya (GPS)</button>
 <button type="button" class="btn" id="regps" hidden>Ambil ulang</button>
 </div>
+
 <p class="note" id="gpsnote">Lokasi hanya diminta saat kamu menekan tombol di atas.</p>
 
 <label for="lt">Nama desa atau patokan terdekat</label>
@@ -36,13 +39,14 @@ Laporan akan dicatat di AnsepZero dan diteruskan melalui WhatsApp setelah kamu m
 
 <label for="ph">Foto kejadian (opsional)</label>
 <input type="file" id="ph" accept="image/*">
-<p class="note">Foto akan kamu lampirkan sendiri setelah WhatsApp terbuka.</p>
+<p class="note">Jika memilih foto, lampirkan kembali secara manual setelah WhatsApp terbuka.</p>
 
 <input class="hp" id="web" tabindex="-1" autocomplete="off" aria-hidden="true">
 
 <div class="btns">
-<button class="btn pri" id="go" type="submit">Kirim Pesan ke Damkar</button>
+<button class="btn pri" id="go" type="submit">Kirim ke WhatsApp Damkar</button>
 </div>
+
 <p class="note" id="msg" role="status"></p>
 </form>
 
@@ -55,6 +59,7 @@ Laporan akan dicatat di AnsepZero dan diteruskan melalui WhatsApp setelah kamu m
 </div>
 <p class="note" id="st"></p>
 </div>
+
 </section>
 </main>
 
@@ -91,8 +96,10 @@ function getPos(){
         lng:p.coords.longitude,
         acc:p.coords.accuracy
       };
+
       $('gpsnote').textContent=
         `Lokasi terkunci: ${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)} (akurasi sekitar ${Math.round(pos.acc)} m).`;
+
       $('gps').hidden=true;
       $('regps').hidden=false;
     },
@@ -140,8 +147,6 @@ $('f').onsubmit=async e=>{
       fd.set('lng',reportPos.lng);
     }
 
-    // Foto tetap dikirim ke server sesuai mekanisme lama.
-    // WhatsApp tidak bisa menerima lampiran melalui URL wa.me.
     if(photo){
       fd.set('photo',photo);
     }
@@ -154,8 +159,12 @@ $('f').onsubmit=async e=>{
     const j=await r.json().catch(()=>null);
 
     if(!r.ok||!j){
-      throw new Error((j&&j.error)||'Laporan gagal disimpan. Hubungi Damkar langsung jika darurat.');
+      throw new Error(
+        (j&&j.error)||'Laporan gagal disimpan. Hubungi Damkar langsung jika darurat.'
+      );
     }
+
+    $('cd').value=j.id;
 
     const parts=[
       '*LAPORAN KEJADIAN - ANSEPZERO*',
@@ -164,7 +173,7 @@ $('f').onsubmit=async e=>{
       '*Deskripsi kejadian:*',
       description,
       '',
-      '*Lokasi:* '+(locationText||'Terlampir melalui GPS')
+      '*Lokasi:* '+(locationText||'Lokasi GPS terlampir')
     ];
 
     if(reportPos){
@@ -177,7 +186,7 @@ $('f').onsubmit=async e=>{
     if(photo){
       parts.push(
         '',
-        '*Foto:* Akan dilampirkan secara manual di WhatsApp.'
+        '*Foto:* Akan dilampirkan secara manual.'
       );
     }
 
@@ -189,13 +198,9 @@ $('f').onsubmit=async e=>{
     const waURL='https://wa.me/'+DAMKAR_WA+'?text='+
       encodeURIComponent(parts.join('\n'));
 
-    m.textContent='Laporan tersimpan. Membuka WhatsApp...';
+    m.textContent='Laporan berhasil dicatat. Membuka WhatsApp...';
 
-    // Membuka WhatsApp setelah laporan berhasil tersimpan.
     window.location.href=waURL;
-
-    // Simpan kode di kolom status agar mudah dicek.
-    $('cd').value=j.id;
 
   }catch(err){
     m.textContent=err.message;
@@ -213,14 +218,21 @@ $('chk').onclick=async()=>{
       return;
     }
 
-    const r=await fetch('/api/reports/'+encodeURIComponent(code));
+    const r=await fetch(
+      '/api/reports/'+encodeURIComponent(code)
+    );
+
     const j=await r.json().catch(()=>({}));
 
-    $('st').textContent=r.ok?'Status: '+j.status:(j.error||'Gagal memeriksa laporan.');
+    $('st').textContent=r.ok
+      ?'Status: '+j.status
+      :(j.error||'Gagal memeriksa laporan.');
+
   }catch(e){
     $('st').textContent='Gagal memeriksa laporan.';
   }
 };
 </script>
+
 </body>
 </html>
