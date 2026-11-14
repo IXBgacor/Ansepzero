@@ -13,11 +13,41 @@
 <script type="module">
 const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a))e.setAttribute(x,v);for(const c of k)e.append(c);return e};
 const list=document.getElementById('list'),refs=document.getElementById('refs'),toc=document.getElementById('toc');
-function body(md){const out=[];let ul=null;
-  for(const line of md.split('\n')){const t=line.trim();if(!t)continue;
-    if(t.startsWith('- ')){if(!ul){ul=h('ul');out.push(ul)}ul.append(h('li',{},t.slice(2)));continue}
-    ul=null;if(t.startsWith('## '))out.push(h('h3',{},t.slice(3)));else out.push(h('p',{},t))}
-  return out}
+
+function body(md) {
+  const out = [];
+  let ul = null;
+
+  md = String(md || '')
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\n')
+    .replace(/\r\n?/g, '\n');
+
+  for (const line of md.split('\n')) {
+    const t = line.trim();
+    if (!t) continue;
+
+    if (t.startsWith('- ')) {
+      if (!ul) {
+        ul = h('ul');
+        out.push(ul);
+      }
+      ul.append(h('li', {}, t.slice(2)));
+      continue;
+    }
+
+    ul = null;
+    if (t.startsWith('## ')) {
+      out.push(h('h3', {}, t.slice(3)));
+    } else {
+      out.push(h('p', {}, t));
+    }
+  }
+
+  return out;
+}
+
 try{
   const r=await fetch('/api/content');if(!r.ok||!(r.headers.get('content-type')||'').includes('json'))throw 0;const{rows}=await r.json();
   if(!rows.length)list.append(h('div',{class:'empty'},'Materi belum dipublikasikan.'));
