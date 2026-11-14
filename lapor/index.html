@@ -9,17 +9,15 @@
 <link rel="stylesheet" href="/assets/css/app.css">
 <script src="/assets/js/nav.js" defer></script>
 </head>
-
 <body>
-<main class="wrap narrow">
 
+<main class="wrap narrow">
 <h1 class="ptitle">Lapor kejadian</h1>
 
 <section>
-
 <div class="warnbox">
 <b>Laporan darurat kebakaran hutan dan lahan.</b>
-Laporan akan dicatat di AnsepZero dan pesan diteruskan melalui WhatsApp setelah kamu menekan tombol kirim.
+Laporan akan dicatat di AnsepZero dan diteruskan melalui WhatsApp setelah kamu menekan tombol kirim.
 <div id="calls" class="btns"></div>
 </div>
 
@@ -29,15 +27,12 @@ Laporan akan dicatat di AnsepZero dan pesan diteruskan melalui WhatsApp setelah 
 <textarea id="d" maxlength="1000" required placeholder="Contoh: ada asap tebal dan api kecil di lahan dekat jalan"></textarea>
 
 <label>Lokasi</label>
-
 <div class="btns" style="margin:0">
 <button type="button" class="btn" id="gps">Gunakan lokasi saya (GPS)</button>
 <button type="button" class="btn" id="regps" hidden>Ambil ulang</button>
 </div>
 
-<p class="note" id="gpsnote">
-Lokasi hanya diminta saat kamu menekan tombol di atas.
-</p>
+<p class="note" id="gpsnote">Lokasi hanya diminta saat kamu menekan tombol di atas.</p>
 
 <label for="lt">Nama desa atau patokan terdekat</label>
 <input class="t" id="lt" maxlength="200" autocomplete="off" placeholder="Nama desa atau patokan">
@@ -45,31 +40,23 @@ Lokasi hanya diminta saat kamu menekan tombol di atas.
 <input class="hp" id="web" tabindex="-1" autocomplete="off" aria-hidden="true">
 
 <div class="btns">
-<button class="btn pri" id="go" type="submit">
-Kirim ke WhatsApp Damkar
-</button>
+<button class="btn pri" id="go" type="submit">Kirim ke WhatsApp Damkar</button>
 </div>
 
 <div class="btns">
-<button type="button" class="btn" id="photoGuide">
-Panduan Mengirim Foto di WhatsApp
-</button>
+<button type="button" class="btn" id="photoGuide">Panduan Mengirim Foto di WhatsApp</button>
 </div>
 
 <p class="note" id="msg" role="status"></p>
-
 </form>
 
 <div class="panel" style="margin-top:14px">
 <h3>Cek status laporan</h3>
-
 <label for="cd">Kode laporan</label>
 <input class="t" id="cd" placeholder="LP-XXXXXXXXXX">
-
 <div class="btns">
 <button class="btn" id="chk" type="button">Cek</button>
 </div>
-
 <p class="note" id="st"></p>
 </div>
 
@@ -77,10 +64,8 @@ Panduan Mengirim Foto di WhatsApp
 </main>
 
 <script type="module">
-
 const $=id=>document.getElementById(id);
 const DAMKAR_WA='6282192825967';
-
 let pos=null;
 let submitting=false;
 
@@ -91,11 +76,9 @@ fetch('/api/contacts')
   for(const c of rows){
     const n=String(c.phone_intl).replace(/\D/g,'');
     const a=document.createElement('a');
-
     a.className='btn pri';
     a.href=n.length<=4?'tel:'+n:'tel:+'+n;
     a.textContent='Telepon '+c.name;
-
     $('calls').append(a);
   }
 })
@@ -103,21 +86,19 @@ fetch('/api/contacts')
 
 // GPS
 function getPos(){
-
   $('gpsnote').textContent='Mengambil lokasi...';
-
-  if(!navigator.geolocation){
-    $('gpsnote').textContent='GPS tidak tersedia. Isi lokasi secara manual.';
-    return;
-  }
-
   $('gps').disabled=true;
   $('regps').disabled=true;
 
+  if(!navigator.geolocation){
+    $('gpsnote').textContent='GPS tidak tersedia. Isi lokasi secara manual.';
+    $('gps').disabled=false;
+    $('regps').disabled=false;
+    return;
+  }
+
   navigator.geolocation.getCurrentPosition(
-
     p=>{
-
       pos={
         lat:p.coords.latitude,
         lng:p.coords.longitude,
@@ -131,11 +112,8 @@ function getPos(){
       $('regps').hidden=false;
       $('gps').disabled=false;
       $('regps').disabled=false;
-
     },
-
     e=>{
-
       $('gpsnote').textContent=
         e.code===1
         ?'Izin GPS ditolak. Isi lokasi secara manual.'
@@ -143,15 +121,12 @@ function getPos(){
 
       $('gps').disabled=false;
       $('regps').disabled=false;
-
     },
-
     {
       enableHighAccuracy:true,
       timeout:15000,
       maximumAge:0
     }
-
   );
 }
 
@@ -160,23 +135,20 @@ $('regps').onclick=getPos;
 
 // PANDUAN FOTO WHATSAPP
 $('photoGuide').onclick=()=>{
-
   alert(
     'PANDUAN MENGIRIM FOTO KE DAMKAR\n\n'+
-    '1. Isi laporan dan tekan tombol Kirim ke WhatsApp Damkar.\n\n'+
+    '1. Isi laporan dan tekan Kirim ke WhatsApp Damkar.\n\n'+
     '2. Tunggu WhatsApp terbuka.\n\n'+
     '3. Tekan ikon lampiran atau kamera di WhatsApp.\n\n'+
-    '4. Pilih foto kejadian dari galeri atau ambil foto baru jika aman.\n\n'+
-    '5. Pastikan foto sesuai dengan laporan.\n\n'+
-    '6. Tekan tombol Kirim untuk mengirim laporan kepada Damkar.\n\n'+
+    '4. Pilih foto kejadian dari galeri.\n\n'+
+    '5. Periksa foto dan pesan laporan.\n\n'+
+    '6. Tekan Kirim untuk mengirim laporan kepada Damkar.\n\n'+
     'Jangan mendekati api demi mengambil foto. Utamakan keselamatan.'
   );
-
 };
 
-// PENGIRIMAN LAPORAN
+// KIRIM LAPORAN
 $('f').onsubmit=async e=>{
-
   e.preventDefault();
 
   if(submitting)return;
@@ -201,9 +173,7 @@ $('f').onsubmit=async e=>{
   m.textContent='Menyimpan laporan...';
 
   try{
-
     const fd=new FormData();
-
     fd.set('description',description);
     fd.set('location_text',locationText);
     fd.set('website',$('web').value);
@@ -227,12 +197,9 @@ $('f').onsubmit=async e=>{
       );
     }
 
-    // SIMPAN KODE LAPORAN
     $('cd').value=j.id;
 
-    // SUSUN PESAN WHATSAPP
     const parts=[
-
       '*LAPORAN KEJADIAN - ANSEPZERO*',
       '',
       '*Kode laporan:* '+j.id,
@@ -241,21 +208,14 @@ $('f').onsubmit=async e=>{
       description,
       '',
       '*Lokasi:* '+(locationText||'Lokasi GPS terlampir')
-
     ];
 
     if(reportPos){
-
       parts.push(
         '',
-        '*Koordinat GPS:* '+
-        reportPos.lat.toFixed(6)+', '+
-        reportPos.lng.toFixed(6),
-
-        '*Peta:* https://maps.google.com/?q='+
-        reportPos.lat+','+reportPos.lng
+        '*Koordinat GPS:* '+reportPos.lat.toFixed(6)+', '+reportPos.lng.toFixed(6),
+        '*Peta:* https://maps.google.com/?q='+reportPos.lat+','+reportPos.lng
       );
-
     }
 
     parts.push(
@@ -263,62 +223,42 @@ $('f').onsubmit=async e=>{
       'Laporan dibuat melalui website AnsepZero.'
     );
 
-    const waURL=
-      'https://wa.me/'+DAMKAR_WA+
+    const waURL='https://wa.me/'+DAMKAR_WA+
       '?text='+encodeURIComponent(parts.join('\n'));
 
-    m.textContent=
-      'Laporan berhasil dicatat. Membuka WhatsApp...';
-
-    // BUKA WHATSAPP
+    m.textContent='Laporan berhasil dicatat. Membuka WhatsApp...';
     window.location.href=waURL;
 
   }catch(err){
-
     m.textContent=err.message;
-
   }finally{
-
     submitting=false;
     $('go').disabled=false;
-
   }
-
 };
 
-// CEK STATUS LAPORAN
+// CEK STATUS
 $('chk').onclick=async()=>{
-
   try{
-
     const code=$('cd').value.trim().toUpperCase();
 
     if(!code){
-      $('st').textContent=
-        'Masukkan kode laporan terlebih dahulu.';
+      $('st').textContent='Masukkan kode laporan terlebih dahulu.';
       return;
     }
 
     $('st').textContent='Memeriksa laporan...';
 
-    const r=await fetch(
-      '/api/reports/'+encodeURIComponent(code)
-    );
-
+    const r=await fetch('/api/reports/'+encodeURIComponent(code));
     const j=await r.json().catch(()=>({}));
 
     $('st').textContent=r.ok
       ?'Status: '+j.status
       :(j.error||'Gagal memeriksa laporan.');
-
   }catch(e){
-
     $('st').textContent='Gagal memeriksa laporan.';
-
   }
-
 };
-
 </script>
 
 </body>
