@@ -1,38 +1,84 @@
- 
-/* Jembatan AnsepZero <-> Misi Penjaga Hutan. Tidak mengubah mesin game: hanya membaca status misi dan melapor ke server.
-   Server yang menentukan skor (batas poin, urutan, waktu). Identitas pemain dibuat di halaman /masuk/ (kode di localStorage 'az.code').
-   Jika server tidak bisa dihubungi, game tetap bisa dimainkan (skor tidak tersimpan). */
+
+/* Jembatan AnsepZero <-> Misi Penjaga Hutan.
+   Tidak mengubah mesin game: hanya membaca status misi dan melapor ke server.
+   Server menentukan skor (batas poin, urutan, waktu).
+   Identitas pemain dibuat di halaman /masuk/ (kode di localStorage 'az.code').
+   Jika server tidak bisa dihubungi, game tetap bisa dimainkan (skor tidak tersimpan).
+*/
 (function () {
   const M = window.MPH, LK = 'az.code';
   if (!M || !M.Missions) return;
 
+  /* CSS informasi pemain */
   const css = document.createElement('style');
   css.textContent = `
     #az-pill {
       position: fixed;
-      left: max(8px, env(safe-area-inset-left));
-      top: max(8px, env(safe-area-inset-top));
-      bottom: auto;
+      left: 6px;
+      bottom: 6px;
+      top: auto;
       z-index: 9999;
-      max-width: calc(100vw - 16px);
+      max-width: calc(100vw - 12px);
       font: 11px system-ui;
       background: rgba(13,20,17,.85);
       color: #98ad9f;
-      padding: 5px 10px;
+      padding: 4px 10px;
       border-radius: 999px;
     }
+
+    #az-pill.game-active {
+      left: max(8px, env(safe-area-inset-left));
+      top: max(8px, env(safe-area-inset-top));
+      bottom: auto;
+    }
+
     #az-pill a {
       color: #3cc8d8;
     }
   `;
   document.head.appendChild(css);
 
-  const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  /* Deteksi apakah gameplay sedang aktif */
+  function updatePillPosition() {
+    const pillElement = document.getElementById('az-pill');
+    const hud = document.getElementById('hud');
+
+    if (!pillElement || !hud) return;
+
+    pillElement.classList.toggle('game-active', !hud.hidden);
+  }
+
+  /* Pantau perubahan status HUD */
+  const hud = document.getElementById('hud');
+
+  if (hud) {
+    new MutationObserver(updatePillPosition).observe(hud, {
+      attributes: true,
+      attributeFilter: ['hidden']
+    });
+  }
+
+  const get = k => {
+    try {
+      return localStorage.getItem(k);
+    } catch (e) {
+      return null;
+    }
+  };
+
   const code = () => get(LK);
-  const guest = () => { try { return sessionStorage.getItem('az.guest') === '1'; } catch (e) { return false; } };
+
+  const guest = () => {
+    try {
+      return sessionStorage.getItem('az.guest') === '1';
+    } catch (e) {
+      return false;
+    }
+  };
 
   async function api(p, m, b) {
     const c = code();
+
     const r = await fetch('/api/' + p, {
       method: m || 'GET',
       headers: Object.assign(
@@ -41,33 +87,59 @@
       ),
       body: b ? JSON.stringify(b) : undefined
     });
+
     const ok = (r.headers.get('content-type') || '').indexOf('json') >= 0;
     const j = ok ? await r.json().catch(() => ({})) : {};
-    if (!r.ok || !ok) throw Object.assign(new Error(j.error || 'Gagal'), { status: r.status });
+
+    if (!r.ok || !ok) {
+      throw Object.assign(new Error(j.error || 'Gagal'), {
+        status: r.status
+      });
+    }
+
     return j;
   }
 
   const el = (t, a, ...k) => {
     const e = document.createElement(t);
-    for (const x in (a || {})) e.setAttribute(x, a[x]);
+
+    for (const x in (a || {})) {
+      e.setAttribute(x, a[x]);
+    }
+
     k.forEach(c => e.append(c));
     return e;
   };
 
   const note = t => {
-    try { if (M.notify) M.notify(t); } catch (e) { /* abaikan */ }
+    try {
+      if (M.notify) M.notify(t);
+    } catch (e) {
+      /* abaikan */
+    }
   };
 
+  /* Membuat informasi pemain */
   const pill = (...k) => {
     const old = document.getElementById('az-pill');
     if (old) old.remove();
-    document.body.appendChild(el('div', { id: 'az-pill' }, ...k));
+
+    document.body.appendChild(
+      el('div', { id: 'az-pill' }, ...k)
+    );
+
+    updatePillPosition();
   };
 
-  let reported = new Set(), reportedPts = 0, busy = false, started = false, failures = 0;
+  let reported = new Set();
+  let reportedPts = 0;
+  let busy = false;
+  let started = false;
+  let failures = 0;
 
   async function check() {
     if (busy || !started) return;
+
     busy = true;
 
     try {
@@ -76,6 +148,7 @@
         if (reported.has(d.id)) continue;
 
         const total = M.Missions.score().total;
+
         const r = await api('game/mission', 'POST', {
           mission_id: d.id,
           points: Math.max(0, total - reportedPts)
@@ -86,14 +159,22 @@
         failures = 0;
 
         note(
-          r.already ? 'Misi sudah tercatat' :
-          r.flagged ? 'Misi tercatat, poin menunggu tinjauan' :
-          'Skor misi tersimpan: +' + r.points + ' poin'
+          r.already
+            ? 'Misi sudah tercatat'
+            : r.flagged
+              ? 'Misi tercatat, poin menunggu tinjauan'
+              : 'Skor misi tersimpan: +' + r.points + ' poin'
         );
       }
 
       const F = M.Final && M.Final.P;
-      if (F && F.finished && !reported.has('final') && M.Missions.allComplete()) {
+
+      if (
+        F &&
+        F.finished &&
+        !reported.has('final') &&
+        M.Missions.allComplete()
+      ) {
         const r = await api('game/mission', 'POST', {
           mission_id: 'final',
           points: Math.max(0, Math.floor(F.score || 0))
@@ -104,9 +185,15 @@
       }
     } catch (e) {
       if (e.status === 409 && /Sesi/.test(e.message)) {
-        try { await api('game/start', 'POST'); } catch (x) { /* abaikan */ }
+        try {
+          await api('game/start', 'POST');
+        } catch (x) {
+          /* abaikan */
+        }
       } else if (++failures === 3) {
-        note('Skor belum tersimpan: server tidak merespons. Game tetap bisa dimainkan.');
+        note(
+          'Skor belum tersimpan: server tidak merespons. Game tetap bisa dimainkan.'
+        );
       }
     }
 
@@ -135,7 +222,12 @@
       me = await api('player/me');
     } catch (e) {
       if (e.status === 401) {
-        try { localStorage.removeItem(LK); } catch (x) { /* abaikan */ }
+        try {
+          localStorage.removeItem(LK);
+        } catch (x) {
+          /* abaikan */
+        }
+
         location.replace('/masuk/?next=game');
         return;
       }
@@ -144,12 +236,15 @@
         'Server tidak terhubung: skor tidak tersimpan | ',
         el('a', { href: '/' }, 'Beranda')
       );
+
       return;
     }
 
     try {
       localStorage.setItem('az.name', me.display_name);
-    } catch (e) { /* abaikan */ }
+    } catch (e) {
+      /* abaikan */
+    }
 
     try {
       await api('game/start', 'POST');
@@ -158,6 +253,7 @@
         'Server belum siap: skor tidak tersimpan | ',
         el('a', { href: '/' }, 'Beranda')
       );
+
       return;
     }
 
@@ -167,9 +263,14 @@
 
     if (local.length) {
       try {
-        const s = await api('game/sync', 'POST', { mission_ids: local });
+        const s = await api('game/sync', 'POST', {
+          mission_ids: local
+        });
+
         if (s.imported) note(s.note);
-      } catch (e) { /* abaikan */ }
+      } catch (e) {
+        /* abaikan */
+      }
     }
 
     local.forEach(i => reported.add(i));
@@ -180,7 +281,9 @@
         M.Final.P.name = me.display_name;
         M.Final.save();
       }
-    } catch (e) { /* abaikan */ }
+    } catch (e) {
+      /* abaikan */
+    }
 
     pill(
       'Pemain: ' + me.display_name + ' | ',
@@ -190,6 +293,7 @@
     );
 
     started = true;
+
     M.Missions.onChange(() => setTimeout(check, 300));
     setInterval(check, 5000);
     check();
