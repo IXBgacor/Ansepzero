@@ -106,9 +106,7 @@ export const handle=guard(async ctx=>{
   }
   if(m==='GET'&&r0==='reports') return J({rows:await qa(env,'SELECT id,description,lat,lng,location_text,photo_key,status,created_at,is_demo FROM citizen_reports ORDER BY created_at DESC LIMIT 200')});
   if(m==='PUT'&&r0==='reports'){const b=await readJson(request);if(!['menunggu','ditinjau','ditindaklanjuti'].includes(b.status))throw new HttpError(400,'Status tidak valid');
-    const r=await run(env,'UPDATE citizen_reports SET status=? WHERE id=?',b.status,id);if(!r.meta.changes)throw new HttpError(404,'Tidak ditemukan');await audit(env,adm.id,'report.status',id+' -> '+b.status);return J({ok:true});}
-  if(m==='DELETE'&&r0==='reports'){const rp=await q1(env,'SELECT photo_key FROM citizen_reports WHERE id=?',id);if(!rp)throw new HttpError(404,'Tidak ditemukan');
-    if(rp.photo_key&&env.PHOTOS)await env.PHOTOS.delete(rp.photo_key);await run(env,'DELETE FROM citizen_reports WHERE id=?',id);await audit(env,adm.id,'report.delete',id);return J({ok:true});}
+    const r=await run(env,'UPDATE citizen_reports SET status=? WHERE id=?',b.status,id);if(!r.meta.changes)throw new HttpError(404,'Laporan tidak ditemukan');await audit(env,adm.id,'report.status',id+' '+b.status);return J({ok:true});}
   if(m==='GET'&&r0==='missions') return J({rows:await qa(env,'SELECT mission_id,title,max_points,min_duration_s,educational,active,ord FROM game_mission_defs ORDER BY ord')});
   if(m==='PUT'&&r0==='missions'){const b=await readJson(request),v={max_points:I(b.max_points,0,10000,'Poin maks'),min_duration_s:I(b.min_duration_s,0,3600,'Durasi minimal'),active:B(b.active),educational:B(b.educational)};
     const r=await run(env,'UPDATE game_mission_defs SET max_points=?,min_duration_s=?,active=?,educational=? WHERE mission_id=?',v.max_points,v.min_duration_s,v.active,v.educational,String(id||''));if(!r.meta.changes)throw new HttpError(404,'Misi tidak ditemukan');
@@ -137,10 +135,28 @@ export const handle=guard(async ctx=>{
     const b=await readJson(request,12000),keys=['visits','players','assessed','met','improved','missions'],cards={};
     for(const k of keys){const x=b.cards?.[k]||{};cards[k]={visible:x.visible!==false,label:S(x.label||'',1,60,'Judul statistik'),description:S(x.description||'',0,180,'Deskripsi statistik')};}
     const note=S(b.note||'',0,300,'Catatan statistik');
-    const value=JSON.stringify({cards,note});
+    const oldRow=await q1(env,"SELECT value FROM app_settings WHERE key='stats_display'");
+    let old={};try{if(oldRow?.value)old=JSON.parse(oldRow.value)}catch(e){}
+    let demo=old.demo||{enabled:false};
+    if(b.demo&&typeof b.demo==='object'){
+      const countKeys=['visits','players','assessed','met_criteria','improved','comparable','educational_missions_done'];
+      const pctKeys=['met_pct','improved_pct'];
+      demo={enabled:b.demo.enabled===true};
+      for(const k of countKeys){
+        const n=Number(b.demo[k]??0);
+        if(!Number.isFinite(n)||n<0||n>1000000000)throw new HttpError(400,'Angka '+k+' harus 0 sampai 1.000.000.000.');
+        demo[k]=Math.round(n);
+      }
+      for(const k of pctKeys){
+        const n=Number(b.demo[k]??0);
+        if(!Number.isFinite(n)||n<0||n>100)throw new HttpError(400,'Persentase '+k+' harus 0 sampai 100.');
+        demo[k]=Math.round(n*10)/10;
+      }
+    }
+    const value=JSON.stringify({cards,note,demo});
     await run(env,"INSERT INTO app_settings(key,value) VALUES('stats_display',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",value);
     await audit(env,adm.id,'stats.display.update','Mengubah tampilan statistik publik');
-    return J({ok:true,cards,note});
+    return J({ok:true,cards,note,demo});
   }
   if(m==='GET'&&r0==='settings') return J({pass_threshold:await threshold(env)});
   if(m==='PUT'&&r0==='settings'){const v=I((await readJson(request)).pass_threshold,1,100,'Ambang');await run(env,"INSERT INTO app_settings(key,value) VALUES('pass_threshold',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",String(v));await audit(env,adm.id,'settings.threshold',v);return J({ok:true,pass_threshold:v});}
