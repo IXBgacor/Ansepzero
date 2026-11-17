@@ -3,7 +3,7 @@
 <meta name="robots" content="noindex,nofollow"><title>Admin - AnsepZero</title><meta name="theme-color" content="#0d1411">
 <link rel="stylesheet" href="/assets/css/app.css">
 </head><body>
-<header class="top"><b>Admin AnsepZero</b><span id="who" class="note"></span><button class="btn sm" id="lo" hidden style="margin-left:auto">Keluar</button></header>
+<header class="top"><b id="admin-brand" style="cursor:pointer">Admin AnsepZero</b><span id="who" class="note"></span><button class="btn sm" id="lo" hidden style="margin-left:auto">Keluar</button></header>
 <section class="wrap" id="auth" hidden>
  <div class="panel"><h2>Masuk</h2><label for="u">Username</label><input class="t" id="u" autocomplete="username"><label for="p">Password</label><input class="t" id="p" type="password" autocomplete="current-password">
  <div class="btns"><button class="btn pri" id="li">Masuk</button></div><p class="note" id="le" role="alert"></p></div>
@@ -22,6 +22,7 @@ const FORMS={
  contacts:{label:'Kontak',fields:[['name','Nama layanan','text'],['phone_intl','Nomor internasional tanpa + (6281...)','text'],['note','Catatan','text'],['verified','Terverifikasi','bool'],['sort','Urutan','num'],['active','Aktif','bool']],title:r=>`${r.name} (${r.phone_intl}) ${r.verified?'':'- belum diverifikasi'}`,pk:'id'},
  announcements:{label:'Pengumuman',fields:[['title','Judul','text'],['body','Isi','area'],['published','Terbit','bool']],title:r=>`${r.published?'':'[draf] '}${r.title}`,pk:'id'}
 };
+let demoTabUnlocked=false,brandTapCount=0;
 const TABS=['Ringkasan','Soal:questions','Materi:content','Kontak:contacts','Pengumuman:announcements','Laporan','Misi','Tinjauan','Papan skor','Pengaturan','Admin','Audit','Ekspor'];
 function entity(key){const c=FORMS[key],v=$('v');v.replaceChildren(h('p',{class:'note'},'Memuat...'));
  api(key).then(({rows})=>{const form=h('form',{class:'panel',style:'margin-top:12px'}),inp={};let editing=null;
@@ -39,6 +40,44 @@ function entity(key){const c=FORMS[key],v=$('v');v.replaceChildren(h('p',{class:
   [...list.querySelectorAll('.it')].forEach((it,i)=>{const[b1,b2]=it.querySelectorAll('button');b1.onclick=()=>fill(rows[i]);b2.onclick=async()=>{if(confirm('Yakin?')){try{await api(key+'/'+rows[i][c.pk],'DELETE');entity(key)}catch(x){alert(x.message)}}}});
   v.replaceChildren(h('h2',{},c.label+` (${rows.length})`),rows.length?list:h('div',{class:'empty'},'Belum ada data.'),form)});}
 const VIEWS={
+ async 'Statistik Demo'(){
+  const d=await api('demo-stats');
+  const fields=[
+   ['visits','Kunjungan'],['players','Pemain unik'],['assessed','Peserta evaluasi'],
+   ['met_criteria','Jumlah memenuhi kriteria'],['comparable','Peserta evaluasi awal dan akhir'],
+   ['improved','Jumlah menunjukkan peningkatan'],['educational_missions_done','Misi edukasi selesai']
+  ];
+  const panel=h('div',{class:'panel'});
+  panel.append(h('p',{class:'note'},'Atur angka yang tampil pada Statistik Platform. Nilai persentase dihitung otomatis dari jumlah peserta.'));
+  const inputs={};
+  for(const [key,label] of fields){
+   const input=h('input',{class:'t',type:'number',min:0,max:10000000,value:d[key]??0});
+   inputs[key]=input;panel.append(h('label',{},label),input);
+  }
+  const enabled=h('input',{type:'checkbox',...(d.enabled?{checked:''}:{})});
+  panel.append(h('label',{},'Gunakan angka demo'),enabled);
+  const msg=h('p',{class:'note',role:'status'});
+  const save=h('button',{class:'btn pri',type:'button'},'Simpan angka');
+  save.onclick=async()=>{
+   const values={enabled:enabled.checked};
+   for(const [key,input] of Object.entries(inputs))values[key]=Number(input.value);
+   if(Object.values(inputs).some(x=>!Number.isInteger(Number(x.value))||Number(x.value)<0||Number(x.value)>10000000)){
+    msg.textContent='Isi semua angka dengan bilangan bulat dari 0 sampai 10.000.000.';return;
+   }
+   if(values.met_criteria>values.assessed||values.improved>values.comparable){
+    msg.textContent='Jumlah memenuhi kriteria tidak boleh melebihi peserta evaluasi, dan jumlah meningkat tidak boleh melebihi peserta evaluasi awal-akhir.';return;
+   }
+   try{await api('demo-stats','PUT',values);msg.textContent='Angka berhasil disimpan.';}
+   catch(e){msg.textContent=e.message;}
+  };
+  const reset=h('button',{class:'btn',type:'button'},'Kembali ke statistik asli');
+  reset.onclick=async()=>{
+   try{await api('demo-stats','PUT',{...Object.fromEntries(fields.map(([k])=>[k,Number(inputs[k].value)])),enabled:false});enabled.checked=false;msg.textContent='Mode demo dimatikan. Statistik asli kembali ditampilkan.';}
+   catch(e){msg.textContent=e.message;}
+  };
+  panel.append(h('div',{class:'btns'},save,reset),msg);
+  return [h('h2',{},'Pengaturan Statistik'),panel];
+ },
  async Ringkasan(){
   const s=await api('summary');
   const d=s.comprehension||{understood:0,not_understood:0,total:0,threshold:s.threshold};
@@ -127,7 +166,21 @@ const VIEWS={
 let cur;
 async function go(name){cur=name;[...$('tabs').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.n===name));const[,key]=name.split(':');
  if(key)return entity(key);const v=$('v');v.replaceChildren(h('p',{class:'note'},'Memuat...'));try{v.replaceChildren(...await VIEWS[name]())}catch(e){if(e.status===401)return show(false);v.replaceChildren(h('div',{class:'empty'},e.message))}}
-function show(ok,user){$('auth').hidden=ok;$('app').hidden=!ok;$('lo').hidden=!ok;$('who').textContent=ok?user:'';if(ok){$('tabs').replaceChildren(...TABS.map(t=>{const n=t.split(':')[0],b=h('button',{'data-n':t.includes(':')?t:n,'aria-pressed':'false'},n);b.onclick=()=>go(t.includes(':')?t:n);return b}));go('Ringkasan')}}
+function show(ok,user){$('auth').hidden=ok;$('app').hidden=!ok;$('lo').hidden=!ok;$('who').textContent=ok?user:'';if(ok){const tabs=[...TABS];if(demoTabUnlocked)tabs.push('Statistik Demo');$('tabs').replaceChildren(...tabs.map(t=>{const n=t.split(':')[0],b=h('button',{'data-n':t.includes(':')?t:n,'aria-pressed':'false'},n);b.onclick=()=>go(t.includes(':')?t:n);return b}));go('Ringkasan')}}
+$('admin-brand').onclick=()=>{
+ brandTapCount++;
+ if(brandTapCount>=5){
+  brandTapCount=0;
+  if(!demoTabUnlocked){
+   demoTabUnlocked=true;
+   if(!$('app').hidden){
+    const b=h('button',{'data-n':'Statistik Demo','aria-pressed':'false'},'Statistik Demo');
+    b.onclick=()=>go('Statistik Demo');$('tabs').append(b);
+   }
+   alert('Pengaturan statistik terbuka.');
+  }
+ }
+};
 $('li').onclick=async()=>{try{await api('login','POST',{username:$('u').value,password:$('p').value});$('p').value='';const me=await api('me');show(true,me.username)}catch(e){$('le').textContent=e.message}};
 $('sb').onclick=async()=>{try{const r=await fetch('/api/admin/setup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:$('st').value,username:$('su').value,password:$('sp').value})}),j=await r.json();$('se').textContent=r.ok?(j.reset?'Password direset. Silakan masuk.':'Admin dibuat. Silakan masuk.'):j.error;if(r.ok){$('st').value='';$('sp').value=''}}catch(e){$('se').textContent='Gagal'}};
 $('lo').onclick=async()=>{try{await api('logout','POST')}catch(e){}show(false)};
