@@ -1,135 +1,1253 @@
 <!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>Admin - AnsepZero</title><meta name="theme-color" content="#0d1411">
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin - AnsepZero</title>
+<meta name="theme-color" content="#0d1411">
 <link rel="stylesheet" href="/assets/css/app.css">
-</head><body>
-<header class="top"><b>Admin AnsepZero</b><span id="who" class="note"></span><button class="btn sm" id="lo" hidden style="margin-left:auto">Keluar</button></header>
+</head>
+<body>
+<header class="top">
+<b>Admin AnsepZero</b>
+<span id="who" class="note"></span>
+<button class="btn sm" id="lo" hidden style="margin-left:auto">Keluar</button>
+</header>
+
 <section class="wrap" id="auth" hidden>
- <div class="panel"><h2>Masuk</h2><label for="u">Username</label><input class="t" id="u" autocomplete="username"><label for="p">Password</label><input class="t" id="p" type="password" autocomplete="current-password">
- <div class="btns"><button class="btn pri" id="li">Masuk</button></div><p class="note" id="le" role="alert"></p></div>
- <details class="panel" style="margin-top:12px"><summary>Setup admin pertama atau pemulihan akses</summary><p class="note">Butuh nilai secret ADMIN_SETUP_TOKEN dari pengaturan Cloudflare. Username yang sudah ada = reset password.</p>
- <label for="st">Token setup</label><input class="t" id="st" type="password" autocomplete="off"><label for="su">Username</label><input class="t" id="su"><label for="sp">Password (min. 12 karakter)</label><input class="t" id="sp" type="password" autocomplete="new-password">
- <div class="btns"><button class="btn" id="sb">Buat / reset</button></div><p class="note" id="se" role="status"></p></details></section>
-<div id="app" hidden><nav class="tabs" id="tabs" aria-label="Menu admin"></nav><main class="wrap" id="v" style="padding-top:12px"></main></div>
+<div class="panel">
+<h2>Masuk</h2>
+<label for="u">Username</label>
+<input class="t" id="u" autocomplete="username">
+<label for="p">Password</label>
+<input class="t" id="p" type="password" autocomplete="current-password">
+<div class="btns">
+<button class="btn pri" id="li">Masuk</button>
+</div>
+<p class="note" id="le" role="alert"></p>
+</div>
+
+<details class="panel" style="margin-top:12px">
+<summary>Setup admin pertama atau pemulihan akses</summary>
+<p class="note">Butuh nilai secret ADMIN_SETUP_TOKEN dari pengaturan Cloudflare. Username yang sudah ada = reset password.</p>
+<label for="st">Token setup</label>
+<input class="t" id="st" type="password" autocomplete="off">
+<label for="su">Username</label>
+<input class="t" id="su">
+<label for="sp">Password (min. 12 karakter)</label>
+<input class="t" id="sp" type="password" autocomplete="new-password">
+<div class="btns">
+<button class="btn" id="sb">Buat / reset</button>
+</div>
+<p class="note" id="se" role="status"></p>
+</details>
+</section>
+
+<div id="app" hidden>
+<nav class="tabs" id="tabs" aria-label="Menu admin"></nav>
+<main class="wrap" id="v" style="padding-top:12px"></main>
+</div>
+
 <script type="module">
 const $=i=>document.getElementById(i);
-const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a))e.setAttribute(x,v);for(const c of k)e.append(c);return e};
-async function api(p,m='GET',b){const r=await fetch('/api/admin/'+p,{method:m,credentials:'same-origin',headers:{'content-type':'application/json','x-az-csrf':'1'},body:b?JSON.stringify(b):undefined});const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.error||'Gagal'),{status:r.status});return j}
-const dt=t=>new Date(t*1000).toLocaleString('id-ID');
-const FORMS={
- questions:{label:'Soal',fields:[['kind','Jenis','select',['level','pre','post']],['level','Level (1-5)','num'],['category','Kategori','select',['penyebab','pencegahan','kesehatan','lingkungan','darurat']],['question','Pertanyaan','area'],['options','Opsi (satu per baris)','lines'],['correct_index','Nomor kunci (mulai 0)','num'],['explanation','Penjelasan','area'],['source_ref','Sumber (opsional)','text'],['active','Aktif','bool']],title:r=>`[${r.kind} L${r.level}] ${r.question}`,pk:'id'},
- content:{label:'Materi',fields:[['slug','Slug','text'],['title','Judul','text'],['body_md','Isi (satu paragraf per baris)','area'],['sources','Sumber (judul | url, satu per baris)','srcs'],['sort','Urutan','num'],['published','Terbit','bool']],title:r=>`${r.published?'[terbit]':'[draf]'} ${r.title}`,pk:'slug'},
- contacts:{label:'Kontak',fields:[['name','Nama layanan','text'],['phone_intl','Nomor internasional tanpa + (6281...)','text'],['note','Catatan','text'],['verified','Terverifikasi','bool'],['sort','Urutan','num'],['active','Aktif','bool']],title:r=>`${r.name} (${r.phone_intl}) ${r.verified?'':'- belum diverifikasi'}`,pk:'id'},
- announcements:{label:'Pengumuman',fields:[['title','Judul','text'],['body','Isi','area'],['published','Terbit','bool']],title:r=>`${r.published?'':'[draf] '}${r.title}`,pk:'id'}
-};
-const TABS=['Ringkasan','Soal:questions','Materi:content','Kontak:contacts','Pengumuman:announcements','Laporan','Misi','Tinjauan','Papan skor','Pengaturan','Admin','Audit','Ekspor'];
-function entity(key){const c=FORMS[key],v=$('v');v.replaceChildren(h('p',{class:'note'},'Memuat...'));
- api(key).then(({rows})=>{const form=h('form',{class:'panel',style:'margin-top:12px'}),inp={};let editing=null;
-  const hd=h('h3',{},'Tambah '+c.label);form.append(hd);
-  for(const[k,l,t,o]of c.fields){const id='f-'+k;let el;
-   if(t==='area'||t==='lines'||t==='srcs')el=h('textarea',{id});else if(t==='select'){el=h('select',{id},...o.map(x=>h('option',{value:x},x)))}else if(t==='bool'){el=h('input',{id,type:'checkbox'})}else el=h('input',{id,class:'t',type:t==='num'?'number':'text'});
-   inp[k]=[el,t];form.append(h('label',{for:id},l),el)}
-  const msg=h('p',{class:'note',role:'status'}),save=h('button',{class:'btn pri',type:'submit'},'Simpan'),nw=h('button',{class:'btn',type:'button'},'Batal / baru');
-  form.append(h('div',{class:'btns'},save,nw),msg);
-  const read=()=>{const o={};for(const[k,[el,t]]of Object.entries(inp)){o[k]=t==='bool'?el.checked:t==='num'?Number(el.value):t==='lines'?el.value.split('\n').map(s=>s.trim()).filter(Boolean):t==='srcs'?el.value.split('\n').map(s=>s.trim()).filter(Boolean).map(s=>{const[a,...b]=s.split('|');return{t:a.trim(),u:b.join('|').trim()}}):el.value}return o};
-  const fill=r=>{editing=r;hd.textContent='Ubah '+c.label;for(const[k,[el,t]]of Object.entries(inp)){const val=k==='options'?r.options:k==='sources'?r.sources:r[k];if(t==='bool')el.checked=!!val;else if(t==='lines')el.value=(val||[]).join('\n');else if(t==='srcs')el.value=(val||[]).map(s=>s.t+' | '+s.u).join('\n');else el.value=val??''}if(c.pk==='slug')inp.slug[0].readOnly=true;scrollTo(0,document.body.scrollHeight)};
-  nw.onclick=()=>entity(key);
-  form.onsubmit=async e=>{e.preventDefault();try{await api(key+(editing?'/'+editing[c.pk]:''),editing?'PUT':'POST',read());entity(key)}catch(x){msg.textContent=x.message}};
-  const list=h('div',{class:'panel'},...rows.map(r=>h('div',{class:'it'},h('div',{class:'m'},c.title(r)),h('div',{},h('button',{class:'btn sm'},'Ubah'),' ',h('button',{class:'btn sm'},key==='questions'?'Nonaktifkan':'Hapus')))));
-  [...list.querySelectorAll('.it')].forEach((it,i)=>{const[b1,b2]=it.querySelectorAll('button');b1.onclick=()=>fill(rows[i]);b2.onclick=async()=>{if(confirm('Yakin?')){try{await api(key+'/'+rows[i][c.pk],'DELETE');entity(key)}catch(x){alert(x.message)}}}});
-  v.replaceChildren(h('h2',{},c.label+` (${rows.length})`),rows.length?list:h('div',{class:'empty'},'Belum ada data.'),form)});}
-const VIEWS={
- async Ringkasan(){
-  const s=await api('summary');
-  const d=s.comprehension||{understood:0,not_understood:0,total:0,threshold:s.threshold};
-  const total=Number(d.total)||0;
-  const yes=Number(d.understood)||0;
-  const no=Number(d.not_understood)||0;
-  const yesPct=total?yes/total*100:0;
-  const noPct=total?no/total*100:0;
 
-  const bar=h('div',{style:'height:24px;display:flex;width:100%;overflow:hidden;border-radius:8px;background:#e5e7eb'});
-  if(total){
-    bar.append(
-      h('div',{title:`Paham: ${yes}`,style:`width:${yesPct}%;background:#16865b;transition:width .3s`}),
-      h('div',{title:`Belum paham: ${no}`,style:`width:${noPct}%;background:#d97736;transition:width .3s`})
+const h=(t,a={},...k)=>{
+  const e=document.createElement(t);
+  for(const[x,v]of Object.entries(a))e.setAttribute(x,v);
+  for(const c of k)e.append(c);
+  return e;
+};
+
+async function api(p,m='GET',b){
+  const r=await fetch('/api/admin/'+p,{
+    method:m,
+    credentials:'same-origin',
+    headers:{
+      'content-type':'application/json',
+      'x-az-csrf':'1'
+    },
+    body:b?JSON.stringify(b):undefined
+  });
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw Object.assign(
+    new Error(j.error||'Gagal'),
+    {status:r.status}
+  );
+  return j;
+}
+
+const dt=t=>new Date(t*1000).toLocaleString('id-ID');
+
+const FORMS={
+ questions:{
+  label:'Soal',
+  fields:[
+   ['kind','Jenis','select',['level','pre','post']],
+   ['level','Level (1-5)','num'],
+   ['category','Kategori','select',['penyebab','pencegahan','kesehatan','lingkungan','darurat']],
+   ['question','Pertanyaan','area'],
+   ['options','Opsi (satu per baris)','lines'],
+   ['correct_index','Nomor kunci (mulai 0)','num'],
+   ['explanation','Penjelasan','area'],
+   ['source_ref','Sumber (opsional)','text'],
+   ['active','Aktif','bool']
+  ],
+  title:r=>`[${r.kind} L${r.level}] ${r.question}`,
+  pk:'id'
+ },
+ content:{
+  label:'Materi',
+  fields:[
+   ['slug','Slug','text'],
+   ['title','Judul','text'],
+   ['body_md','Isi (satu paragraf per baris)','area'],
+   ['sources','Sumber (judul | url, satu per baris)','srcs'],
+   ['sort','Urutan','num'],
+   ['published','Terbit','bool']
+  ],
+  title:r=>`${r.published?'[terbit]':'[draf]'} ${r.title}`,
+  pk:'slug'
+ },
+ contacts:{
+  label:'Kontak',
+  fields:[
+   ['name','Nama layanan','text'],
+   ['phone_intl','Nomor internasional tanpa + (6281...)','text'],
+   ['note','Catatan','text'],
+   ['verified','Terverifikasi','bool'],
+   ['sort','Urutan','num'],
+   ['active','Aktif','bool']
+  ],
+  title:r=>`${r.name} (${r.phone_intl}) ${r.verified?'':'- belum diverifikasi'}`,
+  pk:'id'
+ },
+ announcements:{
+  label:'Pengumuman',
+  fields:[
+   ['title','Judul','text'],
+   ['body','Isi','area'],
+   ['published','Terbit','bool']
+  ],
+  title:r=>`${r.published?'':'[draf] '}${r.title}`,
+  pk:'id'
+ }
+};
+
+// ==========================================
+// MODE DEMO
+// Hanya tersimpan di browser admin.
+// Tidak mengubah database dan skor pemain.
+// ==========================================
+
+let demoMode=localStorage.getItem('az_demo_mode')==='1';
+
+let demoData={
+ paham:20,
+ tidak:10,
+ belum:70
+};
+
+try{
+ const saved=JSON.parse(
+  localStorage.getItem('az_demo_data')||'null'
+ );
+ if(saved)demoData=saved;
+}catch{}
+
+let summaryTitleTaps=0;
+
+function saveDemo(){
+ localStorage.setItem(
+  'az_demo_mode',
+  demoMode?'1':'0'
+ );
+ localStorage.setItem(
+  'az_demo_data',
+  JSON.stringify(demoData)
+ );
+}
+
+// ==========================================
+// MENU ADMIN
+// ==========================================
+
+const TABS=[
+ 'Ringkasan',
+ 'Soal:questions',
+ 'Materi:content',
+ 'Kontak:contacts',
+ 'Pengumuman:announcements',
+ 'Laporan',
+ 'Misi',
+ 'Tinjauan',
+ 'Papan skor',
+ 'Pengaturan',
+ 'Admin',
+ 'Audit',
+ 'Ekspor'
+];
+
+// ==========================================
+// CRUD
+// ==========================================
+
+function entity(key){
+ const c=FORMS[key],v=$('v');
+
+ v.replaceChildren(
+  h('p',{class:'note'},'Memuat...')
+ );
+
+ api(key).then(({rows})=>{
+  const form=h('form',{
+   class:'panel',
+   style:'margin-top:12px'
+  });
+
+  const inp={};
+  let editing=null;
+
+  const hd=h('h3',{},'Tambah '+c.label);
+  form.append(hd);
+
+  for(const[k,l,t,o]of c.fields){
+   const id='f-'+k;
+   let el;
+
+   if(t==='area'||t==='lines'||t==='srcs'){
+    el=h('textarea',{id});
+   }else if(t==='select'){
+    el=h('select',{id},
+     ...o.map(x=>h('option',{value:x},x))
     );
+   }else if(t==='bool'){
+    el=h('input',{id,type:'checkbox'});
+   }else{
+    el=h('input',{
+     id,
+     class:'t',
+     type:t==='num'?'number':'text'
+    });
+   }
+
+   inp[k]=[el,t];
+   form.append(h('label',{for:id},l),el);
   }
 
-  const legend=h('div',{style:'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px'},
-    h('div',{},
-      h('div',{style:'display:flex;align-items:center;gap:7px'},
-        h('span',{style:'width:10px;height:10px;border-radius:3px;background:#16865b'}),
-        h('b',{},'Paham')
-      ),
-      h('div',{style:'font-size:24px;font-weight:700'},String(yes)),
-      h('div',{class:'note'},`${yesPct.toFixed(1)}% pemain`)
-    ),
-    h('div',{},
-      h('div',{style:'display:flex;align-items:center;gap:7px'},
-        h('span',{style:'width:10px;height:10px;border-radius:3px;background:#d97736'}),
-        h('b',{},'Belum paham')
-      ),
-      h('div',{style:'font-size:24px;font-weight:700'},String(no)),
-      h('div',{class:'note'},`${noPct.toFixed(1)}% pemain`)
-    )
+  const msg=h('p',{class:'note',role:'status'});
+  const save=h('button',{
+   class:'btn pri',
+   type:'submit'
+  },'Simpan');
+
+  const nw=h('button',{
+   class:'btn',
+   type:'button'
+  },'Batal / baru');
+
+  form.append(
+   h('div',{class:'btns'},save,nw),
+   msg
   );
 
-  const chart=h('div',{class:'panel',style:'margin-top:12px'},
-    h('h3',{},'Grafik Tingkat Pemahaman Pemain'),
-    h('p',{class:'note'},`Klasifikasi berdasarkan skor leaderboard. Ambang pemahaman: ${d.threshold??s.threshold}% dari skor maksimal 2.000 poin.`),
-    h('div',{style:'margin:18px 0 8px'},
-      h('div',{class:'note',style:'margin-bottom:8px'},`Total pemain yang dihitung: ${total}`),
-      bar
-    ),
-    legend,
-    h('p',{class:'note',style:'margin-top:16px'},
-      total
-        ? 'Paham berarti skor mencapai atau melampaui ambang batas. Belum paham berarti skor berada di bawah ambang batas.'
-        : 'Belum ada data pemain untuk ditampilkan.'
+  const read=()=>{
+   const o={};
+
+   for(const[k,[el,t]]of Object.entries(inp)){
+    o[k]=
+     t==='bool'?el.checked:
+     t==='num'?Number(el.value):
+     t==='lines'?el.value.split('\n').map(s=>s.trim()).filter(Boolean):
+     t==='srcs'?el.value.split('\n').map(s=>s.trim()).filter(Boolean).map(s=>{
+      const[a,...b]=s.split('|');
+      return{
+       t:a.trim(),
+       u:b.join('|').trim()
+      };
+     }):
+     el.value;
+   }
+
+   return o;
+  };
+
+  const fill=r=>{
+   editing=r;
+   hd.textContent='Ubah '+c.label;
+
+   for(const[k,[el,t]]of Object.entries(inp)){
+    const val=k==='options'?r.options:
+     k==='sources'?r.sources:r[k];
+
+    if(t==='bool')el.checked=!!val;
+    else if(t==='lines')el.value=(val||[]).join('\n');
+    else if(t==='srcs')el.value=(val||[]).map(s=>s.t+' | '+s.u).join('\n');
+    else el.value=val??'';
+   }
+
+   if(c.pk==='slug')inp.slug[0].readOnly=true;
+
+   scrollTo(0,document.body.scrollHeight);
+  };
+
+  nw.onclick=()=>entity(key);
+
+  form.onsubmit=async e=>{
+   e.preventDefault();
+
+   try{
+    await api(
+     key+(editing?'/'+editing[c.pk]:''),
+     editing?'PUT':'POST',
+     read()
+    );
+    entity(key);
+   }catch(x){
+    msg.textContent=x.message;
+   }
+  };
+
+  const list=h('div',{class:'panel'},
+   ...rows.map(r=>
+    h('div',{class:'it'},
+     h('div',{class:'m'},c.title(r)),
+     h('div',{},
+      h('button',{class:'btn sm'},'Ubah'),
+      ' ',
+      h('button',{class:'btn sm'},
+       key==='questions'?'Nonaktifkan':'Hapus'
+      )
+     )
     )
+   )
   );
 
-  return [
-    h('h2',{},'Ringkasan'),
-    h('div',{class:'grid'},...[
-      ['Pemain',s.players],
-      ['Laporan menunggu',s.reports_waiting],
-      ['Kuis ditandai',s.flagged_attempts],
-      ['Misi ditandai',s.flagged_missions],
-      ['Soal aktif',s.questions],
-      ['Materi terbit',s.content_published],
-      ['Materi draf',s.content_draft],
-      ['Admin aktif',`${s.admins_active}/${s.admin_limit}`]
-    ].map(([l,n])=>h('div',{class:'stat'},h('div',{class:'n'},String(n)),h('div',{class:'l'},l)))),
-    chart,
-    h('p',{class:'note'},`Ambang kelulusan: ${s.threshold}%. Penyimpanan foto laporan: ${s.photos_enabled?'aktif':'belum diaktifkan (R2 belum terhubung)'}.`)
+  [...list.querySelectorAll('.it')].forEach((it,i)=>{
+   const[b1,b2]=it.querySelectorAll('button');
+
+   b1.onclick=()=>fill(rows[i]);
+
+   b2.onclick=async()=>{
+    if(confirm('Yakin?')){
+     try{
+      await api(
+       key+'/'+rows[i][c.pk],
+       'DELETE'
+      );
+      entity(key);
+     }catch(x){
+      alert(x.message);
+     }
+    }
+   };
+  });
+
+  v.replaceChildren(
+   h('h2',{},c.label+` (${rows.length})`),
+   rows.length?list:h('div',{class:'empty'},'Belum ada data.'),
+   form
+  );
+ });
+}
+
+// ==========================================
+// MODE DEMO PANEL
+// ==========================================
+
+function openDemoPanel(){
+ const v=$('v');
+
+ const panel=h('div',{class:'panel'});
+
+ panel.append(
+  h('h2',{},'Pengaturan Mode Demo'),
+  h('div',{
+   style:'display:inline-block;background:#fff3cd;color:#795900;padding:5px 9px;border-radius:6px;font-size:12px;font-weight:700'
+  },'SIMULASI — BUKAN DATA ASLI'),
+  h('p',{class:'note'},
+   'Atur komposisi persentase untuk tampilan demonstrasi. Perubahan tidak masuk ke database.'
+  )
+ );
+
+ const fields={};
+
+ const addField=(key,label)=>{
+  const input=h('input',{
+   class:'t',
+   type:'number',
+   min:0,
+   max:100,
+   value:demoData[key]
+  });
+
+  fields[key]=input;
+  panel.append(h('label',{},label),input);
+ };
+
+ addField('paham','Paham (%)');
+ addField('tidak','Tidak Paham (%)');
+ addField('belum','Belum Mengikuti (%)');
+
+ const totalText=h('p',{class:'note'});
+ const message=h('p',{class:'note',role:'status'});
+
+ const updateTotal=()=>{
+  const total=Object.values(fields).reduce(
+   (sum,input)=>sum+(Number(input.value)||0),
+   0
+  );
+
+  totalText.textContent='Total persentase: '+total+'%';
+  totalText.style.fontWeight='700';
+  totalText.style.color=
+   total===100?'#16865b':'#d97736';
+ };
+
+ Object.values(fields).forEach(input=>{
+  input.addEventListener('input',updateTotal);
+ });
+
+ const presets=h('div',{
+  style:'display:flex;gap:7px;flex-wrap:wrap;margin:12px 0'
+ });
+
+ [
+  ['20 / 10 / 70',[20,10,70]],
+  ['60 / 25 / 15',[60,25,15]],
+  ['80 / 10 / 10',[80,10,10]]
+ ].forEach(([label,values])=>{
+  const button=h('button',{
+   class:'btn sm',
+   type:'button'
+  },label);
+
+  button.onclick=()=>{
+   fields.paham.value=values[0];
+   fields.tidak.value=values[1];
+   fields.belum.value=values[2];
+   updateTotal();
+  };
+
+  presets.append(button);
+ });
+
+ const save=h('button',{
+  class:'btn pri',
+  type:'button'
+ },'Simpan dan Aktifkan Demo');
+
+ save.onclick=()=>{
+  const values={
+   paham:Number(fields.paham.value),
+   tidak:Number(fields.tidak.value),
+   belum:Number(fields.belum.value)
+  };
+
+  const numbers=Object.values(values);
+
+  if(numbers.some(x=>
+   !Number.isFinite(x)||x<0||x>100
+  )){
+   message.textContent='Setiap nilai harus antara 0 sampai 100.';
+   return;
+  }
+
+  if(numbers.reduce((a,b)=>a+b,0)!==100){
+   message.textContent='Total persentase harus tepat 100%.';
+   return;
+  }
+
+  demoData=values;
+  demoMode=true;
+  saveDemo();
+  go('Ringkasan');
+ };
+
+ const disable=h('button',{
+  class:'btn',
+  type:'button'
+ },'Matikan Demo / Kembali ke Data Asli');
+
+ disable.onclick=()=>{
+  demoMode=false;
+  saveDemo();
+  go('Ringkasan');
+ };
+
+ const back=h('button',{
+  class:'btn',
+  type:'button'
+ },'Kembali');
+
+ back.onclick=()=>go('Ringkasan');
+
+ panel.append(
+  totalText,
+  presets,
+  h('div',{class:'btns'},save,disable,back),
+  message
+ );
+
+ v.replaceChildren(
+  h('h2',{},'Mode Demo AnsepZero'),
+  panel
+ );
+
+ updateTotal();
+}
+
+// ==========================================
+// TAMPILAN ADMIN
+// ==========================================
+
+const VIEWS={
+
+ async Ringkasan(){
+  const s=await api('summary');
+  const d=s.comprehension||{};
+
+  const realTotal=Number(d.total)||0;
+  const realYes=Number(d.understood)||0;
+  const realNo=Number(d.not_understood)||0;
+
+  const realYesPct=realTotal?
+   realYes/realTotal*100:0;
+
+  const realNoPct=realTotal?
+   realNo/realTotal*100:0;
+
+  const values=demoMode
+   ?[
+     ['Paham',demoData.paham,'#16865b'],
+     ['Tidak Paham',demoData.tidak,'#d97736'],
+     ['Belum Mengikuti',demoData.belum,'#64748b']
+    ]
+   :[
+     ['Paham',realYesPct,'#16865b'],
+     ['Tidak Paham',realNoPct,'#d97736']
+    ];
+
+  const chartTitle=h(
+   'h3',
+   {},
+   'Grafik Tingkat Pemahaman Pemain'
+  );
+
+  chartTitle.style.cursor='pointer';
+  chartTitle.title='Klik 5 kali untuk membuka pengaturan demo';
+
+  chartTitle.onclick=()=>{
+   summaryTitleTaps++;
+
+   if(summaryTitleTaps>=5){
+    summaryTitleTaps=0;
+    openDemoPanel();
+   }
+  };
+
+  const bar=h('div',{
+   style:'height:26px;display:flex;width:100%;overflow:hidden;border-radius:8px;background:#e5e7eb;margin-top:14px'
+  });
+
+  values.forEach(([name,pct,color])=>{
+   if(pct>0){
+    bar.append(h('div',{
+     title:name+': '+Number(pct).toFixed(1)+'%',
+     style:'width:'+pct+'%;background:'+color+';transition:width .3s'
+    }));
+   }
+  });
+
+  const legend=h('div',{
+   style:'display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;margin-top:16px'
+  });
+
+  values.forEach(([name,pct,color])=>{
+   legend.append(
+    h('div',{},
+     h('div',{
+      style:'display:flex;align-items:center;gap:7px'
+     },
+      h('span',{
+       style:'width:10px;height:10px;border-radius:3px;background:'+color
+      }),
+      h('b',{},name)
+     ),
+     h('div',{
+      style:'font-size:24px;font-weight:700;margin-top:5px'
+     },Number(pct).toFixed(1)+'%')
+    )
+   );
+  });
+
+  const chart=h('div',{
+   class:'panel',
+   style:'margin-top:12px'
+  },chartTitle);
+
+  if(demoMode){
+   chart.append(
+    h('div',{
+     style:'display:inline-block;background:#fff3cd;color:#795900;padding:5px 9px;border-radius:6px;font-size:12px;font-weight:700;margin:8px 0'
+    },'SIMULASI DEMO'),
+    h('p',{class:'note'},
+     'Angka berikut merupakan data simulasi untuk demonstrasi, bukan hasil asli pemain.'
+    )
+   );
+  }else{
+   chart.append(
+    h('p',{class:'note'},
+     'Data asli berdasarkan skor leaderboard. Ambang pemahaman: '+(d.threshold??s.threshold)+'% dari 2.000 poin.'
+    )
+   );
+  }
+
+  chart.append(
+   h('div',{class:'note'},
+    demoMode?'Komposisi data simulasi':'Total pemain: '+realTotal
+   ),
+   bar,
+   legend
+  );
+
+  const result=[
+   h('h2',{},'Ringkasan'),
+
+   h('div',{class:'grid'},...[
+    ['Pemain',s.players],
+    ['Laporan menunggu',s.reports_waiting],
+    ['Kuis ditandai',s.flagged_attempts],
+    ['Misi ditandai',s.flagged_missions],
+    ['Soal aktif',s.questions],
+    ['Materi terbit',s.content_published],
+    ['Materi draf',s.content_draft],
+    ['Admin aktif',s.admins_active+'/'+s.admin_limit]
+   ].map(([label,number])=>
+    h('div',{class:'stat'},
+     h('div',{class:'n'},String(number)),
+     h('div',{class:'l'},label)
+    )
+   )),
+
+   chart,
+
+   h('p',{class:'note'},
+    'Ambang kelulusan: '+s.threshold+'%. Penyimpanan foto laporan: '+(s.photos_enabled?'aktif':'belum diaktifkan (R2 belum terhubung)')+'.'
+   )
+  ];
+
+  if(demoMode){
+   result.push(
+    h('p',{class:'note'},
+     'Mode demo aktif. Data asli tetap tersimpan dan tidak diubah.'
+    )
+   );
+  }
+
+  return result;
+ },
+
+ async Laporan(){
+  const{rows}=await api('reports');
+
+  return[
+   h('h2',{},'Laporan warga'),
+
+   h('div',{class:'panel'},
+    ...(rows.length?
+     rows.map(r=>{
+      const sel=h('select',{
+       'aria-label':'Status'
+      },
+       ...['menunggu','ditinjau','ditindaklanjuti'].map(s=>
+        h('option',{
+         value:s,
+         ...(s===r.status?{selected:''}:{})
+        },s)
+       )
+      );
+
+      sel.onchange=async()=>{
+       try{
+        await api('reports/'+r.id,'PUT',{
+         status:sel.value
+        });
+       }catch(x){
+        alert(x.message);
+       }
+      };
+
+      const loc=[
+       r.location_text,
+       r.lat!=null?`${r.lat}, ${r.lng}`:null
+      ].filter(Boolean).join(' | ');
+
+      const del=h('button',{
+       class:'btn sm'
+      },'Hapus');
+
+      del.onclick=async()=>{
+       if(confirm('Hapus laporan ini beserta fotonya?')){
+        try{
+         await api('reports/'+r.id,'DELETE');
+         go('Laporan');
+        }catch(x){
+         alert(x.message);
+        }
+       }
+      };
+
+      return h('div',{class:'it'},
+       h('div',{class:'m'},
+        h('b',{},r.id+' '),
+        dt(r.created_at),
+        h('div',{},r.description),
+        h('div',{class:'note'},loc),
+
+        ...(r.lat!=null?[
+         h('a',{
+          href:`https://www.openstreetmap.org/?mlat=${r.lat}&mlon=${r.lng}#map=17/${r.lat}/${r.lng}`,
+          target:'_blank',
+          rel:'noopener'
+         },'Buka di peta'),
+         ' '
+        ]:[]),
+
+        ...(r.photo_key?[
+         h('a',{
+          href:'/api/admin/report-photo/'+r.photo_key,
+          target:'_blank'
+         },'Lihat foto')
+        ]:[])
+       ),
+       h('div',{},sel,' ',del)
+      );
+     })
+     :[
+      h('div',{class:'empty'},'Belum ada laporan.')
+     ]
+    )
+   )
   ];
  },
- async Laporan(){const{rows}=await api('reports');return [h('h2',{},'Laporan warga'),h('div',{class:'panel'},...(rows.length?rows.map(r=>{const sel=h('select',{'aria-label':'Status'},...['menunggu','ditinjau','ditindaklanjuti'].map(s=>h('option',{value:s,...(s===r.status?{selected:''}:{})},s)));sel.onchange=async()=>{try{await api('reports/'+r.id,'PUT',{status:sel.value})}catch(x){alert(x.message)}};
-   const loc=[r.location_text,r.lat!=null?`${r.lat}, ${r.lng}`:null].filter(Boolean).join(' | ');
-   const del=h('button',{class:'btn sm'},'Hapus');del.onclick=async()=>{if(confirm('Hapus laporan ini beserta fotonya?')){try{await api('reports/'+r.id,'DELETE');go('Laporan')}catch(x){alert(x.message)}}};
-   return h('div',{class:'it'},h('div',{class:'m'},h('b',{},r.id+' '),dt(r.created_at),h('div',{},r.description),h('div',{class:'note'},loc),...(r.lat!=null?[h('a',{href:`https://www.openstreetmap.org/?mlat=${r.lat}&mlon=${r.lng}#map=17/${r.lat}/${r.lng}`,target:'_blank',rel:'noopener'},'Buka di peta'),' ']:[]),...(r.photo_key?[h('a',{href:'/api/admin/report-photo/'+r.photo_key,target:'_blank'},'Lihat foto')]:[])),h('div',{},sel,' ',del))}):[h('div',{class:'empty'},'Belum ada laporan.')]))]},
- async Misi(){const{rows}=await api('missions');return [h('h2',{},'Misi Penjaga Hutan'),h('p',{class:'note'},'Ubah poin maksimum dan durasi minimum (diukur server). Mengubah poin menghitung ulang skor semua pemain. Isi misi ada di berkas game dan tidak diedit di sini.'),h('div',{class:'panel'},...rows.map(m=>{const mp=h('input',{class:'t',type:'number',value:m.max_points,'aria-label':'Poin maks'}),md=h('input',{class:'t',type:'number',value:m.min_duration_s,'aria-label':'Durasi minimal (detik)'}),ac=h('input',{type:'checkbox',...(m.active?{checked:''}:{})}),b=h('button',{class:'btn sm'},'Simpan');b.onclick=async()=>{try{await api('missions/'+m.mission_id,'PUT',{max_points:Number(mp.value),min_duration_s:Number(md.value),active:ac.checked,educational:m.educational});b.textContent='Tersimpan'}catch(x){alert(x.message)}};return h('div',{class:'it'},h('div',{class:'m'},h('b',{},m.mission_id+' '),m.title,h('div',{class:'note'},'Poin maks | durasi minimal (dtk) | aktif'),h('div',{style:'display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center'},mp,md,ac)),b)}))]},
- async Tinjauan(){const f=await api('flags');const act=(body)=>async()=>{try{await api('flags','POST',body);go('Tinjauan')}catch(x){alert(x.message)}};
-  const row=(txt,b)=>h('div',{class:'it'},h('div',{class:'m'},txt),h('div',{},(()=>{const a=h('button',{class:'btn sm'},'Setujui');a.onclick=act({...b,action:'approve'});const r=h('button',{class:'btn sm'},'Tolak');r.onclick=act({...b,action:'reject'});return[a,' ',r]})()));
-  return [h('h2',{},'Skor mencurigakan'),h('p',{class:'note'},'Ditandai otomatis karena terlalu cepat atau progres lama. Setujui = dihitung; Tolak = tidak dihitung.'),
-   h('div',{class:'panel'},h('h3',{},'Kuis'),...(f.attempts.length?f.attempts.map(a=>row(`${a.name}: ${a.kind}${a.level?' L'+a.level:''}, ${a.correct}/${a.total}, ${a.duration_s} dtk`,{type:'attempt',id:a.id})):[h('p',{class:'note'},'Tidak ada.')])),
-   h('div',{class:'panel',style:'margin-top:10px'},h('h3',{},'Misi'),...(f.missions.length?f.missions.map(m=>row(`${m.name}: ${m.mission_id}, ${m.points} poin, ${m.duration_s==null?'progres lama':m.duration_s+' dtk'}`,{type:'mission',player_id:m.player_id,mission_id:m.mission_id})):[h('p',{class:'note'},'Tidak ada.')]))]},
- async 'Papan skor'(){const{rows}=await api('players');return [h('h2',{},'Pemain dan papan skor'),h('div',{class:'panel'},...(rows.length?rows.map(p=>{const b=h('button',{class:'btn sm'},p.hidden?'Tampilkan':'Sembunyikan');b.onclick=async()=>{try{await api('players/'+p.id,'PUT',{hidden:p.hidden?0:1});go('Papan skor')}catch(x){alert(x.message)}};return h('div',{class:'it'},h('div',{class:'m'},`${p.display_name} (${p.id}) | ${p.total} poin ${p.hidden?'| tersembunyi':''}`),b)}):[h('div',{class:'empty'},'Belum ada pemain.')]))]},
- async Pengaturan(){const s=await api('settings'),i=h('input',{class:'t',type:'number',min:1,max:100,value:s.pass_threshold,id:'th'}),m=h('p',{class:'note',role:'status'}),b=h('button',{class:'btn pri'},'Simpan');b.onclick=async()=>{try{await api('settings','PUT',{pass_threshold:Number(i.value)});m.textContent='Tersimpan'}catch(x){m.textContent=x.message}};
-  return [h('h2',{},'Pengaturan'),h('div',{class:'panel'},h('label',{for:'th'},'Ambang kriteria pemahaman (%)'),i,h('p',{class:'note'},'Nilai awal 80% adalah keputusan desain demonstrasi, bukan standar ilmiah resmi.'),b,m)]},
- async Admin(){const{rows,limit}=await api('admins'),u=h('input',{class:'t',id:'au'}),p=h('input',{class:'t',type:'password',id:'ap',autocomplete:'new-password'}),m=h('p',{class:'note',role:'status'}),b=h('button',{class:'btn pri'},'Tambah admin');b.onclick=async()=>{try{await api('admins','POST',{username:u.value,password:p.value});go('Admin')}catch(x){m.textContent=x.message}};
-  return [h('h2',{},`Admin (maks ${limit} aktif)`),h('div',{class:'panel'},...rows.map(a=>{const t=h('button',{class:'btn sm'},a.active?'Nonaktifkan':'Aktifkan');t.onclick=async()=>{try{await api('admins/'+a.id,'PUT',{active:a.active?0:1});go('Admin')}catch(x){alert(x.message)}};return h('div',{class:'it'},h('div',{class:'m'},`${a.username} ${a.active?'':'(nonaktif)'}`),t)})),h('div',{class:'panel',style:'margin-top:10px'},h('h3',{},'Tambah admin'),h('label',{for:'au'},'Username'),u,h('label',{for:'ap'},'Password (min. 12 karakter)'),p,h('div',{class:'btns'},b),m)]},
- async Audit(){const{rows}=await api('audit');return [h('h2',{},'Audit log'),h('div',{class:'panel',style:'overflow-x:auto'},h('table',{},h('tr',{},h('th',{},'Waktu'),h('th',{},'Admin'),h('th',{},'Aksi'),h('th',{},'Detail')),...rows.map(r=>h('tr',{},h('td',{},dt(r.at)),h('td',{},r.username||'-'),h('td',{},r.action),h('td',{},r.detail||'')))))]},
- async Ekspor(){return [h('h2',{},'Ekspor dan cadangan'),h('div',{class:'panel'},h('p',{},'Data agregat (tanpa data pribadi) untuk laporan:'),h('a',{class:'btn',href:'/api/admin/export/aggregate.csv',download:''},'Unduh CSV agregat'),h('p',{style:'margin-top:16px'},'Cadangan penuh database (tanpa akun admin dan sesi). Simpan di tempat aman karena memuat nama tampilan pemain dan lokasi laporan:'),h('a',{class:'btn',href:'/api/admin/export/backup.sql',download:''},'Unduh cadangan SQL'))]}
+
+ async Misi(){
+  const{rows}=await api('missions');
+
+  return[
+   h('h2',{},'Misi Penjaga Hutan'),
+
+   h('p',{class:'note'},
+    'Ubah poin maksimum dan durasi minimum (diukur server). Mengubah poin menghitung ulang skor semua pemain. Isi misi ada di berkas game dan tidak diedit di sini.'
+   ),
+
+   h('div',{class:'panel'},
+    ...rows.map(m=>{
+     const mp=h('input',{
+      class:'t',
+      type:'number',
+      value:m.max_points,
+      'aria-label':'Poin maks'
+     });
+
+     const md=h('input',{
+      class:'t',
+      type:'number',
+      value:m.min_duration_s,
+      'aria-label':'Durasi minimal (detik)'
+     });
+
+     const ac=h('input',{
+      type:'checkbox',
+      ...(m.active?{checked:''}:{})
+     });
+
+     const b=h('button',{
+      class:'btn sm'
+     },'Simpan');
+
+     b.onclick=async()=>{
+      try{
+       await api('missions/'+m.mission_id,'PUT',{
+        max_points:Number(mp.value),
+        min_duration_s:Number(md.value),
+        active:ac.checked,
+        educational:m.educational
+       });
+
+       b.textContent='Tersimpan';
+      }catch(x){
+       alert(x.message);
+      }
+     };
+
+     return h('div',{class:'it'},
+      h('div',{class:'m'},
+       h('b',{},m.mission_id+' '),
+       m.title,
+       h('div',{class:'note'},
+        'Poin maks | durasi minimal (dtk) | aktif'
+       ),
+       h('div',{
+        style:'display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center'
+       },mp,md,ac)
+      ),
+      b
+     );
+    })
+   )
+  ];
+ },
+
+ async Tinjauan(){
+  const f=await api('flags');
+
+  const act=body=>async()=>{
+   try{
+    await api('flags','POST',body);
+    go('Tinjauan');
+   }catch(x){
+    alert(x.message);
+   }
+  };
+
+  const row=(txt,b)=>
+   h('div',{class:'it'},
+    h('div',{class:'m'},txt),
+    h('div',{},
+     (()=>{
+      const a=h('button',{
+       class:'btn sm'
+      },'Setujui');
+
+      a.onclick=act({
+       ...b,
+       action:'approve'
+      });
+
+      const r=h('button',{
+       class:'btn sm'
+      },'Tolak');
+
+      r.onclick=act({
+       ...b,
+       action:'reject'
+      });
+
+      return[a,' ',r];
+     })()
+    )
+   );
+
+  return[
+   h('h2',{},'Skor mencurigakan'),
+
+   h('p',{class:'note'},
+    'Ditandai otomatis karena terlalu cepat atau progres lama. Setujui = dihitung; Tolak = tidak dihitung.'
+   ),
+
+   h('div',{class:'panel'},
+    h('h3',{},'Kuis'),
+
+    ...(f.attempts.length?
+     f.attempts.map(a=>
+      row(
+       `${a.name}: ${a.kind}${a.level?' L'+a.level:''}, ${a.correct}/${a.total}, ${a.duration_s} dtk`,
+       {type:'attempt',id:a.id}
+      )
+     )
+     :[
+      h('p',{class:'note'},'Tidak ada.')
+     ]
+    )
+   ),
+
+   h('div',{
+    class:'panel',
+    style:'margin-top:10px'
+   },
+    h('h3',{},'Misi'),
+
+    ...(f.missions.length?
+     f.missions.map(m=>
+      row(
+       `${m.name}: ${m.mission_id}, ${m.points} poin, ${m.duration_s==null?'progres lama':m.duration_s+' dtk'}`,
+       {
+        type:'mission',
+        player_id:m.player_id,
+        mission_id:m.mission_id
+       }
+      )
+     )
+     :[
+      h('p',{class:'note'},'Tidak ada.')
+     ]
+    )
+   )
+  ];
+ },
+
+ async 'Papan skor'(){
+  const{rows}=await api('players');
+
+  return[
+   h('h2',{},'Pemain dan papan skor'),
+
+   h('div',{class:'panel'},
+    ...(rows.length?
+     rows.map(p=>{
+      const b=h('button',{
+       class:'btn sm'
+      },p.hidden?'Tampilkan':'Sembunyikan');
+
+      b.onclick=async()=>{
+       try{
+        await api('players/'+p.id,'PUT',{
+         hidden:p.hidden?0:1
+        });
+        go('Papan skor');
+       }catch(x){
+        alert(x.message);
+       }
+      };
+
+      return h('div',{class:'it'},
+       h('div',{class:'m'},
+        `${p.display_name} (${p.id}) | ${p.total} poin ${p.hidden?'| tersembunyi':''}`
+       ),
+       b
+      );
+     })
+     :[
+      h('div',{class:'empty'},'Belum ada pemain.')
+     ]
+    )
+   )
+  ];
+ },
+
+ async Pengaturan(){
+  const s=await api('settings');
+
+  const i=h('input',{
+   class:'t',
+   type:'number',
+   min:1,
+   max:100,
+   value:s.pass_threshold,
+   id:'th'
+  });
+
+  const m=h('p',{
+   class:'note',
+   role:'status'
+  });
+
+  const b=h('button',{
+   class:'btn pri'
+  },'Simpan');
+
+  b.onclick=async()=>{
+   try{
+    await api('settings','PUT',{
+     pass_threshold:Number(i.value)
+    });
+    m.textContent='Tersimpan';
+   }catch(x){
+    m.textContent=x.message;
+   }
+  };
+
+  return[
+   h('h2',{},'Pengaturan'),
+
+   h('div',{class:'panel'},
+    h('label',{
+     for:'th'
+    },'Ambang kriteria pemahaman (%)'),
+
+    i,
+
+    h('p',{class:'note'},
+     'Nilai awal 80% adalah keputusan desain demonstrasi, bukan standar ilmiah resmi.'
+    ),
+
+    b,
+    m
+   )
+  ];
+ },
+
+ async Admin(){
+  const{rows,limit}=await api('admins');
+
+  const u=h('input',{
+   class:'t',
+   id:'au'
+  });
+
+  const p=h('input',{
+   class:'t',
+   type:'password',
+   id:'ap',
+   autocomplete:'new-password'
+  });
+
+  const m=h('p',{
+   class:'note',
+   role:'status'
+  });
+
+  const b=h('button',{
+   class:'btn pri'
+  },'Tambah admin');
+
+  b.onclick=async()=>{
+   try{
+    await api('admins','POST',{
+     username:u.value,
+     password:p.value
+    });
+    go('Admin');
+   }catch(x){
+    m.textContent=x.message;
+   }
+  };
+
+  return[
+   h('h2',{},`Admin (maks ${limit} aktif)`),
+
+   h('div',{class:'panel'},
+    ...rows.map(a=>{
+     const t=h('button',{
+      class:'btn sm'
+     },a.active?'Nonaktifkan':'Aktifkan');
+
+     t.onclick=async()=>{
+      try{
+       await api('admins/'+a.id,'PUT',{
+        active:a.active?0:1
+       });
+       go('Admin');
+      }catch(x){
+       alert(x.message);
+      }
+     };
+
+     return h('div',{class:'it'},
+      h('div',{class:'m'},
+       `${a.username} ${a.active?'':'(nonaktif)'}`
+      ),
+      t
+     );
+    })
+   ),
+
+   h('div',{
+    class:'panel',
+    style:'margin-top:10px'
+   },
+    h('h3',{},'Tambah admin'),
+    h('label',{for:'au'},'Username'),
+    u,
+    h('label',{for:'ap'},'Password (min. 12 karakter)'),
+    p,
+    h('div',{class:'btns'},b),
+    m
+   )
+  ];
+ },
+
+ async Audit(){
+  const{rows}=await api('audit');
+
+  return[
+   h('h2',{},'Audit log'),
+
+   h('div',{
+    class:'panel',
+    style:'overflow-x:auto'
+   },
+    h('table',{},
+     h('tr',{},
+      h('th',{},'Waktu'),
+      h('th',{},'Admin'),
+      h('th',{},'Aksi'),
+      h('th',{},'Detail')
+     ),
+
+     ...rows.map(r=>
+      h('tr',{},
+       h('td',{},dt(r.at)),
+       h('td',{},r.username||'-'),
+       h('td',{},r.action),
+       h('td',{},r.detail||'')
+      )
+     )
+    )
+   )
+  ];
+ },
+
+ async Ekspor(){
+  return[
+   h('h2',{},'Ekspor dan cadangan'),
+
+   h('div',{class:'panel'},
+    h('p',{},
+     'Data agregat (tanpa data pribadi) untuk laporan:'
+    ),
+
+    h('a',{
+     class:'btn',
+     href:'/api/admin/export/aggregate.csv',
+     download:''
+    },'Unduh CSV agregat'),
+
+    h('p',{style:'margin-top:16px'},
+     'Cadangan penuh database (tanpa akun admin dan sesi). Simpan di tempat aman karena memuat nama tampilan pemain dan lokasi laporan:'
+    ),
+
+    h('a',{
+     class:'btn',
+     href:'/api/admin/export/backup.sql',
+     download:''
+    },'Unduh cadangan SQL')
+   )
+  ];
+ }
+
 };
+
+// ==========================================
+// NAVIGASI DAN LOGIN
+// ==========================================
+
 let cur;
-async function go(name){cur=name;[...$('tabs').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.n===name));const[,key]=name.split(':');
- if(key)return entity(key);const v=$('v');v.replaceChildren(h('p',{class:'note'},'Memuat...'));try{v.replaceChildren(...await VIEWS[name]())}catch(e){if(e.status===401)return show(false);v.replaceChildren(h('div',{class:'empty'},e.message))}}
-function show(ok,user){$('auth').hidden=ok;$('app').hidden=!ok;$('lo').hidden=!ok;$('who').textContent=ok?user:'';if(ok){$('tabs').replaceChildren(...TABS.map(t=>{const n=t.split(':')[0],b=h('button',{'data-n':t.includes(':')?t:n,'aria-pressed':'false'},n);b.onclick=()=>go(t.includes(':')?t:n);return b}));go('Ringkasan')}}
-$('li').onclick=async()=>{try{await api('login','POST',{username:$('u').value,password:$('p').value});$('p').value='';const me=await api('me');show(true,me.username)}catch(e){$('le').textContent=e.message}};
-$('sb').onclick=async()=>{try{const r=await fetch('/api/admin/setup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:$('st').value,username:$('su').value,password:$('sp').value})}),j=await r.json();$('se').textContent=r.ok?(j.reset?'Password direset. Silakan masuk.':'Admin dibuat. Silakan masuk.'):j.error;if(r.ok){$('st').value='';$('sp').value=''}}catch(e){$('se').textContent='Gagal'}};
-$('lo').onclick=async()=>{try{await api('logout','POST')}catch(e){}show(false)};
-try{const me=await api('me');show(true,me.username)}catch(e){show(false)}
-</script></body></html>
+
+async function go(name){
+ cur=name;
+
+ [...$('tabs').children].forEach(b=>
+  b.setAttribute(
+   'aria-pressed',
+   b.dataset.n===name
+  )
+ );
+
+ const[,key]=name.split(':');
+
+ if(key)return entity(key);
+
+ const v=$('v');
+
+ v.replaceChildren(
+  h('p',{class:'note'},'Memuat...')
+ );
+
+ try{
+  v.replaceChildren(
+   ...await VIEWS[name]()
+  );
+ }catch(e){
+  if(e.status===401)return show(false);
+
+  v.replaceChildren(
+   h('div',{class:'empty'},e.message)
+  );
+ }
+}
+
+function show(ok,user){
+ $('auth').hidden=ok;
+ $('app').hidden=!ok;
+ $('lo').hidden=!ok;
+ $('who').textContent=ok?user:'';
+
+ if(ok){
+  $('tabs').replaceChildren(
+   ...TABS.map(t=>{
+    const n=t.split(':')[0];
+
+    const b=h('button',{
+     'data-n':t.includes(':')?t:n,
+     'aria-pressed':'false'
+    },n);
+
+    b.onclick=()=>go(t.includes(':')?t:n);
+
+    return b;
+   })
+  );
+
+  go('Ringkasan');
+ }
+}
+
+// ==========================================
+// LOGIN
+// ==========================================
+
+$('li').onclick=async()=>{
+ try{
+  await api('login','POST',{
+   username:$('u').value,
+   password:$('p').value
+  });
+
+  $('p').value='';
+
+  const me=await api('me');
+  show(true,me.username);
+ }catch(e){
+  $('le').textContent=e.message;
+ }
+};
+
+$('sb').onclick=async()=>{
+ try{
+  const r=await fetch('/api/admin/setup',{
+   method:'POST',
+   headers:{
+    'content-type':'application/json'
+   },
+   body:JSON.stringify({
+    token:$('st').value,
+    username:$('su').value,
+    password:$('sp').value
+   })
+  });
+
+  const j=await r.json();
+
+  $('se').textContent=r.ok?
+   (j.reset?'Password direset. Silakan masuk.':'Admin dibuat. Silakan masuk.'):
+   j.error;
+
+  if(r.ok){
+   $('st').value='';
+   $('sp').value='';
+  }
+ }catch(e){
+  $('se').textContent='Gagal';
+ }
+};
+
+$('lo').onclick=async()=>{
+ try{
+  await api('logout','POST');
+ }catch(e){}
+
+ show(false);
+};
+
+try{
+ const me=await api('me');
+ show(true,me.username);
+}catch(e){
+ show(false);
+}
+</script>
+</body>
+</html>
