@@ -20,22 +20,14 @@ const routes={
     const up=(await q1(env,"SELECT COUNT(*) c FROM (SELECT player_id FROM learning_assessments GROUP BY player_id HAVING SUM(kind='pre')>0 AND SUM(kind='post')>0 AND (SELECT score_pct FROM learning_assessments x WHERE x.player_id=learning_assessments.player_id AND kind='post' ORDER BY created_at DESC LIMIT 1)>(SELECT score_pct FROM learning_assessments x WHERE x.player_id=learning_assessments.player_id AND kind='pre' ORDER BY created_at LIMIT 1))")).c;
     const visits=(await q1(env,'SELECT COALESCE(SUM(hits),0) c FROM page_visits')).c;
     const missions=(await q1(env,'SELECT COUNT(*) c FROM game_missions m JOIN game_mission_defs d USING(mission_id) WHERE d.educational=1')).c;
-    const real={threshold_pct:th,visits,players,assessed:taken,met_criteria:met,
+    const displayRow=await q1(env,"SELECT value v FROM app_settings WHERE key='stats_display'");
+    let display={};try{if(displayRow?.v)display=JSON.parse(displayRow.v)}catch(e){}
+    return {threshold_pct:th,visits,players,assessed,met_criteria:met,
       met_pct:pct(met,taken),met_pct_denominator:'peserta evaluasi',
       comparable:both,improved:up,improved_pct:pct(up,both),improved_pct_denominator:'peserta dengan evaluasi awal dan akhir',
       educational_missions_done:missions,
-      note:'Indikator pemahaman peserta platform, bukan survei representatif penduduk Barito Kuala.'};
-    const saved=await q1(env,"SELECT value v FROM app_settings WHERE key='demo_stats'");
-    if(saved?.v){
-      try{
-        const d=JSON.parse(saved.v);
-        if(d.enabled)return {...real,visits:d.visits,players:d.players,assessed:d.assessed,
-          met_criteria:d.met_criteria,met_pct:pct(d.met_criteria,d.assessed),
-          comparable:d.comparable,improved:d.improved,improved_pct:pct(d.improved,d.comparable),
-          educational_missions_done:d.educational_missions_done};
-      }catch(e){}
-    }
-    return real;
+      note:display.note??'Indikator pemahaman peserta platform, bukan survei representatif penduduk Barito Kuala.',
+      display:display.cards||{}};
   },
   async ispa(env){
     const rows=await qa(env,'SELECT period,label,cases,is_partial,note FROM ispa_data ORDER BY period');
