@@ -139,10 +139,43 @@ const VIEWS={
    panel.append(h('div',{class:'it'},h('b',{},label),h('label',{},show,' Tampilkan kartu ini'),h('label',{},'Judul tampilan'),title,h('label',{},'Deskripsi'),detail));
   }
   const note=h('textarea',{rows:'3',maxlength:'300'});note.value=data.note??'Indikator pemahaman peserta platform, bukan survei representatif penduduk Barito Kuala.';
-  const msg=h('p',{class:'note',role:'status'}),save=h('button',{class:'btn pri'},'Simpan tampilan statistik');
-  save.onclick=async()=>{try{const out={cards:{},note:note.value};for(const c of controls)out.cards[c.key]={visible:c.show.checked,label:c.title.value.trim(),description:c.detail.value.trim()};await api('stats-display','PUT',out);msg.textContent='Pengaturan statistik berhasil disimpan.';}catch(e){msg.textContent=e.message;}};
-  panel.append(h('h3',{},'Catatan di bawah statistik'),note,h('div',{class:'btns'},save),msg);
-  return [h('h2',{},'Pengaturan Statistik Beranda'),panel];
+  const demo=data.demo||{},demoPanel=h('div',{class:'panel',style:'margin-top:12px'});
+  demoPanel.append(h('h3',{},'Angka simulasi untuk demo'));
+  demoPanel.append(h('p',{class:'note'},'Aktifkan untuk menampilkan angka contoh di halaman publik saat presentasi. Angka ini hanya simulasi, tidak mengubah data pemain/evaluasi asli, dan akan kembali ke data asli saat dinonaktifkan.'));
+  const enabled=h('input',{type:'checkbox',...(demo.enabled===true?{checked:''}:{})});
+  demoPanel.append(h('label',{},enabled,' Gunakan angka simulasi di halaman publik'));
+  const fields=[
+   ['visits','Kunjungan',0,1000000000,1],
+   ['players','Pemain unik',0,1000000000,1],
+   ['assessed','Peserta evaluasi',0,1000000000,1],
+   ['met_criteria','Peserta memenuhi kriteria',0,1000000000,1],
+   ['met_pct','Persentase memenuhi kriteria (%)',0,100,0.1],
+   ['comparable','Peserta dengan evaluasi awal dan akhir',0,1000000000,1],
+   ['improved','Peserta menunjukkan peningkatan',0,1000000000,1],
+   ['improved_pct','Persentase peningkatan (%)',0,100,0.1],
+   ['educational_missions_done','Misi edukasi selesai',0,1000000000,1]
+  ];
+  const numberInputs={};
+  for(const [key,label,min,max,step] of fields){
+   const inp=h('input',{class:'t',type:'number',min:String(min),max:String(max),step:String(step),value:String(demo[key]??0)});
+   numberInputs[key]=inp;
+   demoPanel.append(h('label',{},label),inp);
+  }
+  const msg=h('p',{class:'note',role:'status'});
+  const save=h('button',{class:'btn pri'},'Simpan pengaturan statistik');
+  const reset=h('button',{class:'btn'},'Kembali ke data asli');
+  const payload=()=>{
+   const out={cards:{},note:note.value,demo:{enabled:enabled.checked}};
+   for(const c of controls)out.cards[c.key]={visible:c.show.checked,label:c.title.value.trim(),description:c.detail.value.trim()};
+   for(const [key] of fields)out.demo[key]=Number(numberInputs[key].value||0);
+   return out;
+  };
+  save.onclick=async()=>{try{await api('stats-display','PUT',payload());msg.textContent=enabled.checked?'Tersimpan. Halaman publik sekarang memakai angka simulasi.':'Tersimpan. Halaman publik memakai data asli.';}catch(e){msg.textContent=e.message;}};
+  reset.onclick=async()=>{enabled.checked=false;try{await api('stats-display','PUT',payload());msg.textContent='Mode simulasi dinonaktifkan. Statistik publik kembali memakai data asli.';}catch(e){msg.textContent=e.message;}};
+  panel.append(h('h3',{},'Catatan di bawah statistik'),note);
+  panel.append(h('div',{class:'btns'},save),msg);
+  demoPanel.append(h('div',{class:'btns'},reset),h('p',{class:'note'},'Tekan Simpan pengaturan statistik untuk menerapkan angka simulasi.'));
+  return [h('h2',{},'Pengaturan Statistik Beranda'),panel,demoPanel];
  },
  async Pengaturan(){const s=await api('settings'),i=h('input',{class:'t',type:'number',min:1,max:100,value:s.pass_threshold,id:'th'}),m=h('p',{class:'note',role:'status'}),b=h('button',{class:'btn pri'},'Simpan');b.onclick=async()=>{try{await api('settings','PUT',{pass_threshold:Number(i.value)});m.textContent='Tersimpan'}catch(x){m.textContent=x.message}};
   return [h('h2',{},'Pengaturan'),h('div',{class:'panel'},h('label',{for:'th'},'Ambang kriteria pemahaman (%)'),i,h('p',{class:'note'},'Nilai awal 80% adalah keputusan desain demonstrasi, bukan standar ilmiah resmi.'),b,m)]},
