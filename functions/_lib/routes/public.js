@@ -27,20 +27,22 @@ const routes={
     let display={};
     try{if(displayRow?.v)display=JSON.parse(displayRow.v)}catch(e){}
 
+    const demo=display.demo||{};
+    const demoEnabled=demo.enabled===true;
     return {
       threshold_pct:th,
-      visits,
-      players,
-      assessed:taken,
-      met_criteria:met,
-      met_pct:pct(met,taken),
+      visits:demoEnabled?demo.visits:visits,
+      players:demoEnabled?demo.players:players,
+      assessed:demoEnabled?demo.assessed:taken,
+      met_criteria:demoEnabled?demo.met_criteria:met,
+      met_pct:demoEnabled?demo.met_pct:pct(met,taken),
       met_pct_denominator:'peserta evaluasi',
-      comparable:both,
-      improved:up,
-      improved_pct:pct(up,both),
+      comparable:demoEnabled?demo.comparable:both,
+      improved:demoEnabled?demo.improved:up,
+      improved_pct:demoEnabled?demo.improved_pct:pct(up,both),
       improved_pct_denominator:'peserta dengan evaluasi awal dan akhir',
-      educational_missions_done:missions,
-      note:display.note??'Indikator pemahaman peserta platform, bukan survei representatif penduduk Barito Kuala.',
+      educational_missions_done:demoEnabled?demo.educational_missions_done:missions,
+      note:demoEnabled?'Data simulasi untuk demonstrasi, bukan hasil penelitian atau data aktual.':(display.note??'Indikator pemahaman peserta platform, bukan survei representatif penduduk Barito Kuala.'),
       display:display.cards||{}
     };
   },
