@@ -66,12 +66,35 @@ export const handle=guard(async ctx=>{
   if(m==='GET'&&r0==='me') return J({username:adm.username});
   if(m==='POST'&&r0==='logout'){const t=/az_admin=([0-9a-f]{64})/.exec(request.headers.get('cookie')||'')[1];await run(env,'DELETE FROM admin_sessions WHERE token_hash=?',await sha(t));return J({ok:true},200,{'set-cookie':'az_admin=; HttpOnly; Secure; SameSite=Strict; Path=/api/admin; Max-Age=0'});}
   if(Object.hasOwn(ENT,r0)) return J(await crud(env,adm,r0,m,id==null?null:(r0==='content'?id:Number(id)),m==='GET'||m==='DELETE'?null:await readJson(request,20000)));
+  if(r0==='demo-stats'&&m==='GET'){
+    const row=await q1(env,"SELECT value FROM app_settings WHERE key='demo_stats'");
+    let d={enabled:true,visits:84,players:11,assessed:4,met_criteria:2,comparable:1,improved:1,educational_missions_done:21};
+    if(row?.value){try{d={...d,...JSON.parse(row.value)}}catch(e){}}
+    return J(d);
+  }
+  if(r0==='demo-stats'&&m==='PUT'){
+    const x=await readJson(request,5000);
+    const d={
+      enabled:!!x.enabled,
+      visits:I(x.visits,0,10000000,'Kunjungan'),
+      players:I(x.players,0,10000000,'Pemain unik'),
+      assessed:I(x.assessed,0,10000000,'Peserta evaluasi'),
+      met_criteria:I(x.met_criteria,0,10000000,'Memenuhi kriteria'),
+      comparable:I(x.comparable,0,10000000,'Peserta evaluasi awal dan akhir'),
+      improved:I(x.improved,0,10000000,'Menunjukkan peningkatan'),
+      educational_missions_done:I(x.educational_missions_done,0,10000000,'Misi edukasi selesai')
+    };
+    if(d.met_criteria>d.assessed||d.improved>d.comparable)throw new HttpError(400,'Jumlah hasil tidak boleh melebihi jumlah peserta.');
+    await run(env,"INSERT INTO app_settings(key,value) VALUES('demo_stats',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",JSON.stringify(d));
+    await audit(env,adm.id,'demo_stats.update',JSON.stringify(d));
+    return J({ok:true,...d});
+  }
   if(m==='GET'&&r0==='summary'){
     const c=async s=>(await q1(env,s)).c;
     const th=await threshold(env);
     // Persentase dihitung dari skor leaderboard terhadap skor maksimal gabungan.
     // Pemain tanpa baris leaderboard dihitung 0 poin agar seluruh pemain terwakili.
-    const comprehension=await q1(env,`
+    let comprehension=await q1(env,`
       SELECT
         COUNT(*) AS total,
         COALESCE(SUM(CASE
@@ -83,6 +106,10 @@ export const handle=guard(async ctx=>{
       FROM players p
       LEFT JOIN leaderboard_scores l ON l.player_id=p.id
     `,th,th);
+    const demoRow=await q1(env,"SELECT value FROM app_settings WHERE key='demo_stats'");
+    if(demoRow?.value){
+      try{const d=JSON.parse(demoRow.value);if(d.enabled)comprehension={total:d.assessed,understood:d.met_criteria,not_understood:Math.max(0,d.assessed-d.met_criteria),threshold:th};}catch(e){}
+    }
     return J({
       players:await c('SELECT COUNT(*) c FROM players'),
       reports_waiting:await c("SELECT COUNT(*) c FROM citizen_reports WHERE status='menunggu'"),
