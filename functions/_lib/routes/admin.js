@@ -68,7 +68,41 @@ export const handle=guard(async ctx=>{
   if(Object.hasOwn(ENT,r0)) return J(await crud(env,adm,r0,m,id==null?null:(r0==='content'?id:Number(id)),m==='GET'||m==='DELETE'?null:await readJson(request,20000)));
   if(m==='GET'&&r0==='summary'){
     const c=async s=>(await q1(env,s)).c;
-    return J({players:await c('SELECT COUNT(*) c FROM players'),reports_waiting:await c("SELECT COUNT(*) c FROM citizen_reports WHERE status='menunggu'"),flagged_attempts:await c('SELECT COUNT(*) c FROM quiz_attempts WHERE flagged=1'),flagged_missions:await c('SELECT COUNT(*) c FROM game_missions WHERE flagged=1'),questions:await c('SELECT COUNT(*) c FROM quiz_questions WHERE active=1'),content_published:await c('SELECT COUNT(*) c FROM education_content WHERE published=1'),content_draft:await c('SELECT COUNT(*) c FROM education_content WHERE published=0'),admins_active:await c('SELECT COUNT(*) c FROM admin_users WHERE active=1'),admin_limit:5,threshold:await threshold(env),photos_enabled:!!env.PHOTOS});
+    const th=await threshold(env);
+    // Persentase dihitung dari skor leaderboard terhadap skor maksimal gabungan.
+    // Pemain tanpa baris leaderboard dihitung 0 poin agar seluruh pemain terwakili.
+    const comprehension=await q1(env,`
+      SELECT
+        COUNT(*) AS total,
+        COALESCE(SUM(CASE
+          WHEN COALESCE(l.total_points,0)*100.0/2000 >= ?
+          THEN 1 ELSE 0 END),0) AS understood,
+        COALESCE(SUM(CASE
+          WHEN COALESCE(l.total_points,0)*100.0/2000 < ?
+          THEN 1 ELSE 0 END),0) AS not_understood
+      FROM players p
+      LEFT JOIN leaderboard_scores l ON l.player_id=p.id
+    `,th,th);
+    return J({
+      players:await c('SELECT COUNT(*) c FROM players'),
+      reports_waiting:await c("SELECT COUNT(*) c FROM citizen_reports WHERE status='menunggu'"),
+      flagged_attempts:await c('SELECT COUNT(*) c FROM quiz_attempts WHERE flagged=1'),
+      flagged_missions:await c('SELECT COUNT(*) c FROM game_missions WHERE flagged=1'),
+      questions:await c('SELECT COUNT(*) c FROM quiz_questions WHERE active=1'),
+      content_published:await c('SELECT COUNT(*) c FROM education_content WHERE published=1'),
+      content_draft:await c('SELECT COUNT(*) c FROM education_content WHERE published=0'),
+      admins_active:await c('SELECT COUNT(*) c FROM admin_users WHERE active=1'),
+      admin_limit:5,
+      threshold:th,
+      photos_enabled:!!env.PHOTOS,
+      comprehension:{
+        understood:comprehension?.understood||0,
+        not_understood:comprehension?.not_understood||0,
+        total:comprehension?.total||0,
+        threshold:th,
+        max_score:2000
+      }
+    });
   }
   if(m==='GET'&&r0==='reports') return J({rows:await qa(env,'SELECT id,description,lat,lng,location_text,photo_key,status,created_at,is_demo FROM citizen_reports ORDER BY created_at DESC LIMIT 200')});
   if(m==='PUT'&&r0==='reports'){const b=await readJson(request);if(!['menunggu','ditinjau','ditindaklanjuti'].includes(b.status))throw new HttpError(400,'Status tidak valid');
