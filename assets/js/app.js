@@ -10,16 +10,20 @@ async function stats(){
   const el=$('#stats');
   try{
     const s=await api('stats');
-    const items=[
-      ['Kunjungan',nf(s.visits),'jumlah kunjungan tercatat'],
-      ['Pemain unik',nf(s.players),'berdasarkan ID pemain'],
-      ['Peserta evaluasi',nf(s.assessed),'menyelesaikan evaluasi'],
-      ['Memenuhi kriteria',pctTxt(s.met_pct),`${nf(s.met_criteria)} dari ${nf(s.assessed)} ${s.met_pct_denominator}, ambang ${s.threshold_pct}%`],
-      ['Menunjukkan peningkatan',pctTxt(s.improved_pct),`${nf(s.improved)} dari ${nf(s.comparable)} ${s.improved_pct_denominator}`],
-      ['Misi edukasi selesai',nf(s.educational_missions_done),'tercatat di server']
+    const defaults=[
+      ['visits','Kunjungan',nf(s.visits),'jumlah kunjungan tercatat'],
+      ['players','Pemain unik',nf(s.players),'berdasarkan ID pemain'],
+      ['assessed','Peserta evaluasi',nf(s.assessed),'menyelesaikan evaluasi'],
+      ['met','Memenuhi kriteria',pctTxt(s.met_pct),`${nf(s.met_criteria)} dari ${nf(s.assessed)} ${s.met_pct_denominator}, ambang ${s.threshold_pct}%`],
+      ['improved','Menunjukkan peningkatan',pctTxt(s.improved_pct),`${nf(s.improved)} dari ${nf(s.comparable)} ${s.improved_pct_denominator}`],
+      ['missions','Misi edukasi selesai',nf(s.educational_missions_done),'tercatat di server']
     ];
+    const cards=s.display||{};
+    const items=defaults.filter(([key])=>cards[key]?.visible!==false).map(([key,label,value,desc])=>[
+      cards[key]?.label||label,value,cards[key]?.description??desc
+    ]);
     el.replaceChildren(...items.map(([l,n,d])=>h('div',{class:'stat'},h('div',{class:'n'+(n==='Belum ada data'?' na':'')},n),h('div',{class:'l'},l),h('div',{class:'d'},d))));
-    $('#stats-note').textContent=s.note+' Ambang kelulusan adalah keputusan desain demonstrasi, bukan standar ilmiah resmi.';
+    $('#stats-note').textContent=s.note||'';
   }catch(e){fail(el,'Statistik belum dapat dimuat. Pastikan database D1 sudah dihubungkan dan migrasi diterapkan.')}
 }
 async function announcements(){
