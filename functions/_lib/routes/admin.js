@@ -106,7 +106,9 @@ export const handle=guard(async ctx=>{
   }
   if(m==='GET'&&r0==='reports') return J({rows:await qa(env,'SELECT id,description,lat,lng,location_text,photo_key,status,created_at,is_demo FROM citizen_reports ORDER BY created_at DESC LIMIT 200')});
   if(m==='PUT'&&r0==='reports'){const b=await readJson(request);if(!['menunggu','ditinjau','ditindaklanjuti'].includes(b.status))throw new HttpError(400,'Status tidak valid');
-    const r=await run(env,'UPDATE citizen_reports SET status=? WHERE id=?',b.status,id);if(!r.meta.changes)throw new HttpError(404,'Laporan tidak ditemukan');await audit(env,adm.id,'report.status',id+' '+b.status);return J({ok:true});}
+    const r=await run(env,'UPDATE citizen_reports SET status=? WHERE id=?',b.status,id);if(!r.meta.changes)throw new HttpError(404,'Tidak ditemukan');await audit(env,adm.id,'report.status',id+' -> '+b.status);return J({ok:true});}
+  if(m==='DELETE'&&r0==='reports'){const rp=await q1(env,'SELECT photo_key FROM citizen_reports WHERE id=?',id);if(!rp)throw new HttpError(404,'Tidak ditemukan');
+    if(rp.photo_key&&env.PHOTOS)await env.PHOTOS.delete(rp.photo_key);await run(env,'DELETE FROM citizen_reports WHERE id=?',id);await audit(env,adm.id,'report.delete',id);return J({ok:true});}
   if(m==='GET'&&r0==='missions') return J({rows:await qa(env,'SELECT mission_id,title,max_points,min_duration_s,educational,active,ord FROM game_mission_defs ORDER BY ord')});
   if(m==='PUT'&&r0==='missions'){const b=await readJson(request),v={max_points:I(b.max_points,0,10000,'Poin maks'),min_duration_s:I(b.min_duration_s,0,3600,'Durasi minimal'),active:B(b.active),educational:B(b.educational)};
     const r=await run(env,'UPDATE game_mission_defs SET max_points=?,min_duration_s=?,active=?,educational=? WHERE mission_id=?',v.max_points,v.min_duration_s,v.active,v.educational,String(id||''));if(!r.meta.changes)throw new HttpError(404,'Misi tidak ditemukan');
